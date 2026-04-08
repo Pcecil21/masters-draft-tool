@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Masters Pool Tracker 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --augusta: #00563F;
+    --augusta-deep: #003D2B;
+    --augusta-black: #0A1F16;
+    --fairway: #0B4A2E;
+    --champagne: #C9A84C;
+    --champagne-pale: #E8D48B;
+    --champagne-dim: rgba(201,168,76,0.3);
+    --bg: #080E0B;
+    --bg-card: #0F1A14;
+    --bg-elevated: #142219;
+    --bg-hover: #1A2E23;
+    --border: #1E3528;
+    --border-light: #2A4A38;
+    --text: #D4DDD8;
+    --text-dim: #6B8A78;
+    --text-bright: #F0F5F2;
+    --red: #E85454;
+    --yellow: #D4A032;
+    --sky: #4A90D9;
+    --mono: 'DM Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  .header {
+    background: linear-gradient(180deg, var(--augusta) 0%, var(--augusta-deep) 100%);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px solid var(--champagne);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, var(--champagne-dim), transparent);
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    color: var(--champagne);
+    letter-spacing: 3px;
+  }
+
+  .logo span {
+    font-size: 14px;
+    color: var(--champagne-pale);
+    letter-spacing: 1px;
+    opacity: 0.7;
+    margin-left: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 400;
+  }
+
+  .hdr-btns { display: flex; gap: 8px; }
+
+  .hdr-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid var(--border-light);
+    background: rgba(0,0,0,0.3);
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+  }
+
+  .hdr-btn:hover { border-color: var(--champagne); color: var(--champagne); }
+  .hdr-btn.primary { background: var(--augusta); border-color: var(--champagne); color: var(--champagne); }
+  .hdr-btn.danger { border-color: rgba(232,84,84,0.3); color: var(--red); }
+
+  /* Mode toggle */
+  .mode-bar {
+    background: var(--augusta-black);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 20px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .mode-pill {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 14px;
+    letter-spacing: 2px;
+    padding: 6px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    transition: all 0.2s;
+  }
+
+  .mode-pill.active {
+    background: var(--augusta);
+    border-color: var(--champagne);
+    color: var(--champagne);
+  }
+
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4ADE80;
+    animation: blink 1.5s infinite;
+    margin-right: 4px;
+    display: inline-block;
+  }
+
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* ===== SETUP VIEW ===== */
+  .view { display: none; padding: 20px; max-width: 800px; margin: 0 auto; }
+  .view.active { display: block; }
+
+  .section-head {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 2px;
+    color: var(--champagne);
+    margin: 24px 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-head:first-child { margin-top: 0; }
+  .section-head::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border-light), transparent); }
+
+  .team-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: border-color 0.2s;
+  }
+
+  .team-card:focus-within { border-color: var(--augusta); }
+
+  .team-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .team-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    color: var(--champagne);
+    width: 30px;
+    text-align: center;
+  }
+
+  .team-name-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text-bright);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .team-name-input:focus { outline: none; border-color: var(--champagne); }
+
+  .team-name-input::placeholder { color: var(--text-dim); font-weight: 400; }
+
+  .is-me {
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+
+  .is-me.active {
+    background: var(--augusta);
+    border-color: var(--champagne);
+    color: var(--champagne);
+  }
+
+  .golfer-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .golfer-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .golfer-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    width: 20px;
+    flex-shrink: 0;
+  }
+
+  .golfer-select {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L1 3h10z' fill='%236B8A78'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+  }
+
+  .golfer-select:focus { outline: none; border-color: var(--champagne); }
+
+  .add-team-btn {
+    width: 100%;
+    padding: 14px;
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+  }
+
+  .add-team-btn:hover { border-color: var(--champagne); color: var(--champagne); }
+
+  .remove-team {
+    background: none;
+    border: none;
+    color: var(--red);
+    cursor: pointer;
+    font-size: 16px;
+    opacity: 0.4;
+    transition: opacity 0.2s;
+  }
+
+  .remove-team:hover { opacity: 1; }
+
+  .tb-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--champagne);
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 500;
+    width: 80px;
+    text-align: center;
+  }
+
+  .tb-input:focus { outline: none; border-color: var(--champagne); }
+
+  /* ===== LEADERBOARD VIEW ===== */
+  .pool-board {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .pool-row {
+    display: flex;
+    align-items: stretch;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    overflow: hidden;
+    transition: all 0.2s;
+  }
+
+  .pool-row.me {
+    border-color: var(--augusta);
+    background: rgba(11,74,46,0.12);
+  }
+
+  .pool-row.eliminated {
+    opacity: 0.4;
+    border-color: var(--red);
+  }
+
+  .pool-pos {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    color: var(--champagne);
+    width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: rgba(0,0,0,0.2);
+  }
+
+  .pool-pos.first { color: var(--champagne); }
+
+  .pool-body {
+    flex: 1;
+    padding: 12px 14px;
+    min-width: 0;
+  }
+
+  .pool-name {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .pool-golfers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .pool-g {
+    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .pool-g.scoring { border-color: var(--augusta); background: rgba(11,74,46,0.15); }
+  .pool-g.cut { opacity: 0.4; text-decoration: line-through; border-color: var(--red); }
+
+  .pool-g .g-score {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 11px;
+  }
+
+  .pool-score {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    color: var(--champagne);
+    width: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: rgba(0,0,0,0.15);
+  }
+
+  .pool-score.negative { color: #4ADE80; }
+
+  .status-tag {
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .status-tag.alive { background: rgba(74,222,128,0.12); color: #4ADE80; }
+  .status-tag.danger { background: rgba(232,84,84,0.12); color: var(--red); }
+
+  .last-updated {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-dim);
+    padding: 12px;
+    font-family: var(--mono);
+  }
+
+  .score-entry {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 12px;
+  }
+
+  .score-entry label {
+    font-size: 13px;
+    color: var(--text-dim);
+    min-width: 100px;
+  }
+
+  .score-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    color: var(--text-bright);
+    font-family: var(--mono);
+    font-size: 14px;
+    width: 60px;
+    text-align: center;
+  }
+
+  .score-input:focus { outline: none; border-color: var(--champagne); }
+
+  .instructions {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    padding: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 600px) {
+    .pool-score { width: 54px; font-size: 22px; }
+    .pool-pos { width: 34px; font-size: 18px; }
+    .pool-name { font-size: 13px; }
+    .pool-g { font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">MASTERS<span>POOL TRACKER</span></div>
+  <div class="hdr-btns">
+    <button class="hdr-btn" onclick="openTrade()">TRADE</button>
+    <a href="index.html" class="hdr-btn">DRAFT TOOL</a>
+  </div>
+</div>
+
+<div class="mode-bar">
+  <button class="mode-pill active" onclick="switchMode('setup')">SETUP</button>
+  <button class="mode-pill" onclick="switchMode('live')"><span class="live-dot"></span>LEADERBOARD</button>
+</div>
+
+<!-- SETUP VIEW -->
+<div class="view active" id="setupView">
+  <div class="instructions">
+    Enter each team's owner name and their 3 drafted golfers. Mark yourself with the "ME" button. Scores can be entered manually during the tournament, or just track positions. Data saves to your browser automatically.
+  </div>
+
+  <div class="section-head">TEAMS</div>
+  <div id="teamCards"></div>
+  <button class="add-team-btn" onclick="addTeam()">+ Add Team</button>
+
+  <div class="section-head">YOUR TIEBREAKER</div>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+    <span style="font-size:12px;color:var(--text-dim);">Predicted winning 72-hole score:</span>
+    <input type="number" class="tb-input" id="myTiebreaker" value="-12" onchange="saveData()">
+  </div>
+
+  <button class="hdr-btn primary" onclick="switchMode('live')" style="width:100%;padding:14px;font-size:14px;margin-top:8px;">VIEW LEADERBOARD</button>
+</div>
+
+<!-- TRADE MODAL -->
+<div class="overlay" id="tradeModal" style="z-index:600;">
+  <div style="background:linear-gradient(180deg,var(--bg-elevated),var(--bg-card));border:1px solid var(--border-light);border-radius:16px;padding:24px;width:360px;max-width:90vw;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;color:var(--text-bright);text-align:center;margin-bottom:16px;">TRADE</div>
+    <div style="font-size:12px;color:var(--text-dim);margin-bottom:14px;text-align:center;">Equal number of players on each side</div>
+
+    <div style="display:flex;gap:12px;margin-bottom:16px;">
+      <div style="flex:1;">
+        <div style="font-size:11px;color:var(--champagne);margin-bottom:6px;font-family:var(--mono);">TEAM A</div>
+        <select class="golfer-select" id="tradeTeamA" onchange="renderTradeGolfers()" style="width:100%;margin-bottom:8px;"></select>
+        <div id="tradeGolfersA"></div>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:11px;color:var(--champagne);margin-bottom:6px;font-family:var(--mono);">TEAM B</div>
+        <select class="golfer-select" id="tradeTeamB" onchange="renderTradeGolfers()" style="width:100%;margin-bottom:8px;"></select>
+        <div id="tradeGolfersB"></div>
+      </div>
+    </div>
+
+    <button onclick="executeTrade()" style="width:100%;padding:12px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:linear-gradient(135deg,var(--augusta),var(--fairway));color:var(--champagne-pale);font-family:'DM Sans',sans-serif;margin-bottom:8px;">EXECUTE TRADE</button>
+    <button onclick="closeTrade()" style="width:100%;padding:8px;background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;">Cancel</button>
+  </div>
+</div>
+
+<!-- LEADERBOARD VIEW -->
+<div class="view" id="liveView">
+  <div class="section-head">UPDATE SCORES</div>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+    <button class="hdr-btn primary" id="fetchBtn" onclick="fetchESPN()">FETCH LIVE SCORES</button>
+    <span id="fetchStatus" style="font-size:11px;color:var(--text-dim);font-family:var(--mono);"></span>
+    <label style="margin-left:auto;font-size:11px;color:var(--text-dim);display:flex;align-items:center;gap:4px;">
+      <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()"> Auto (5 min)
+    </label>
+  </div>
+  <details style="margin-bottom:16px;">
+    <summary style="font-size:12px;color:var(--text-dim);cursor:pointer;">Manual score override</summary>
+    <div style="margin-top:8px;" id="scoreInputs"></div>
+  </details>
+
+  <div class="section-head">POOL STANDINGS</div>
+  <div class="pool-board" id="poolBoard"></div>
+  <div class="last-updated" id="lastUpdated"></div>
+</div>
+
+<script>
+// ===== Golfer list (names only, for dropdowns) =====
+const GOLFER_NAMES = [
+  "Scottie Scheffler","Jon Rahm","Bryson DeChambeau","Rory McIlroy",
+  "Ludvig Aberg","Xander Schauffele","Tommy Fleetwood","Cameron Young","Matt Fitzpatrick",
+  "Hideki Matsuyama","Collin Morikawa","Robert MacIntyre","Min Woo Lee","Justin Rose","Brooks Koepka","Jordan Spieth","Chris Gotterup",
+  "Patrick Reed","Viktor Hovland","Russell Henley","Si Woo Kim","Justin Thomas","Akshay Bhatia","Patrick Cantlay","Adam Scott",
+  "Jason Day","Jake Knapp","Shane Lowry","Sam Burns","J.J. Spaun","Sepp Straka","Tyrrell Hatton","Corey Conners","Nicolai Hojgaard",
+  "Maverick McNealy","Jacob Bridgeman","Kurt Kitayama","Harris English","Daniel Berger","Gary Woodland","Ben Griffin","Cameron Smith",
+  "Max Homa","Keegan Bradley","Rasmus Hojgaard","Alex Noren","Nick Taylor","Brian Harman","Wyndham Clark","Sergio Garcia","Dustin Johnson",
+  "Ryan Fox","Marco Penge","Harry Hall","Ryan Gerard","Michael Kim","Max Greyserman","Aaron Rai","Kristoffer Reitan","Casey Jarvis",
+  "Carlos Ortiz","Tom McKibbin","Matt McCarty","Haotong Li","Andrew Novak","Nico Echavarria","Rasmus Neergaard-Petersen",
+  "Sami Valimaki","Aldrich Potgieter","Johnny Keefer","Michael Brennan","Zach Johnson","Bubba Watson","Charl Schwartzel",
+  "Davis Riley","Danny Willett","Brian Campbell","Mason Howell","Ethan Fang","Pongsapek Laopakdee","Naoyuki Kataoka",
+  "Vijay Singh","Fred Couples","Jose Maria Olazabal","Mike Weir","Jackson Herrington","Mateo Pulcini","Brandon Holtz"
+].sort();
+
+// ===== State =====
+let pool = {
+  teams: [],
+  scores: {},  // golferName -> { score: number|null, status: 'active'|'cut' }
+  tiebreaker: -12,
+  meIndex: -1,
+};
+
+// Load from localStorage
+function loadData() {
+  try {
+    const saved = localStorage.getItem('masters-pool-2026');
+    if (saved) pool = JSON.parse(saved);
+  } catch(e) {}
+}
+
+function saveData() {
+  pool.tiebreaker = parseInt(document.getElementById('myTiebreaker').value) || -12;
+  localStorage.setItem('masters-pool-2026', JSON.stringify(pool));
+}
+
+// ===== Setup View =====
+function addTeam() {
+  pool.teams.push({ name: '', golfers: ['', '', ''] });
+  saveData();
+  renderSetup();
+}
+
+function removeTeam(i) {
+  pool.teams.splice(i, 1);
+  if (pool.meIndex === i) pool.meIndex = -1;
+  else if (pool.meIndex > i) pool.meIndex--;
+  saveData();
+  renderSetup();
+}
+
+function toggleMe(i) {
+  pool.meIndex = pool.meIndex === i ? -1 : i;
+  saveData();
+  renderSetup();
+}
+
+function updateTeamName(i, val) {
+  pool.teams[i].name = val;
+  saveData();
+}
+
+function updateGolfer(teamIdx, golferIdx, val) {
+  pool.teams[teamIdx].golfers[golferIdx] = val;
+  // Init score tracking
+  if (val && !pool.scores[val]) {
+    pool.scores[val] = { score: null, status: 'active' };
+  }
+  saveData();
+}
+
+function golferOptions(selected) {
+  let html = '<option value="">-- Select golfer --</option>';
+  GOLFER_NAMES.forEach(name => {
+    const sel = name === selected ? 'selected' : '';
+    html += `<option value="${name}" ${sel}>${name}</option>`;
+  });
+  return html;
+}
+
+function renderSetup() {
+  const container = document.getElementById('teamCards');
+  container.innerHTML = pool.teams.map((team, i) => `
+    <div class="team-card">
+      <div class="team-header">
+        <span class="team-num">${i + 1}</span>
+        <input class="team-name-input" placeholder="Team owner name..." value="${team.name}" onchange="updateTeamName(${i}, this.value)">
+        <button class="is-me ${pool.meIndex === i ? 'active' : ''}" onclick="toggleMe(${i})">ME</button>
+        <button class="remove-team" onclick="removeTeam(${i})">x</button>
+      </div>
+      <div class="golfer-inputs">
+        ${team.golfers.map((g, j) => `
+          <div class="golfer-row">
+            <span class="golfer-label">G${j + 1}</span>
+            <select class="golfer-select" onchange="updateGolfer(${i}, ${j}, this.value)">
+              ${golferOptions(g)}
+            </select>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('myTiebreaker').value = pool.tiebreaker;
+}
+
+// ===== Live View =====
+function parseScore(val) {
+  if (val === '' || val === null || val === undefined) return null;
+  const s = String(val).trim().toUpperCase();
+  if (s === 'E' || s === '0') return 0;
+  if (s === 'CUT' || s === 'MC') return 'CUT';
+  return parseInt(s) || 0;
+}
+
+function fmtScore(s) {
+  if (s === null || s === undefined) return '--';
+  if (s === 'CUT') return 'CUT';
+  if (s === 0) return 'E';
+  return s > 0 ? '+' + s : '' + s;
+}
+
+function updateScore(golfer, val) {
+  const parsed = parseScore(val);
+  if (parsed === 'CUT') {
+    pool.scores[golfer] = { score: null, status: 'cut' };
+  } else {
+    pool.scores[golfer] = { score: parsed, status: 'active' };
+  }
+  saveData();
+  renderLive();
+}
+
+function renderScoreInputs() {
+  // Get all unique golfers across teams
+  const golfers = new Set();
+  pool.teams.forEach(t => t.golfers.forEach(g => { if (g) golfers.add(g); }));
+
+  const sorted = [...golfers].sort();
+  const container = document.getElementById('scoreInputs');
+
+  container.innerHTML = sorted.map(g => {
+    const data = pool.scores[g] || { score: null, status: 'active' };
+    const val = data.status === 'cut' ? 'CUT' : (data.score !== null ? data.score : '');
+    return `<div class="score-entry">
+      <label>${g}</label>
+      <input class="score-input" value="${val}" placeholder="--" onchange="updateScore('${g}', this.value)">
+    </div>`;
+  }).join('');
+}
+
+function renderLive() {
+  renderScoreInputs();
+
+  // Calculate team scores
+  const standings = pool.teams.map((team, i) => {
+    const golferData = team.golfers.map(name => {
+      if (!name) return { name: '(empty)', score: null, status: 'active' };
+      const data = pool.scores[name] || { score: null, status: 'active' };
+      return { name, ...data };
+    });
+
+    // Count active golfers (not cut)
+    const active = golferData.filter(g => g.status === 'active' && g.score !== null);
+    const cutCount = golferData.filter(g => g.status === 'cut').length;
+    const alive = (3 - cutCount) >= 2; // Need 2+ to make cut
+
+    // Best 2 scores
+    let teamScore = null;
+    let scoringGolfers = [];
+
+    if (active.length >= 2) {
+      const sorted = [...active].sort((a, b) => a.score - b.score);
+      scoringGolfers = sorted.slice(0, 2).map(g => g.name);
+      teamScore = sorted[0].score + sorted[1].score;
+    } else if (active.length === 1 && cutCount === 0) {
+      // Only 1 score in so far, tournament ongoing
+      scoringGolfers = [active[0].name];
+      teamScore = active[0].score;
+    }
+
+    return {
+      name: team.name || `Team ${i + 1}`,
+      golfers: golferData,
+      teamScore,
+      scoringGolfers,
+      alive,
+      cutCount,
+      isMe: i === pool.meIndex,
+    };
+  });
+
+  // Sort: alive first, then by score (lower is better)
+  standings.sort((a, b) => {
+    if (a.alive !== b.alive) return a.alive ? -1 : 1;
+    if (a.teamScore === null && b.teamScore === null) return 0;
+    if (a.teamScore === null) return 1;
+    if (b.teamScore === null) return -1;
+    return a.teamScore - b.teamScore;
+  });
+
+  const board = document.getElementById('poolBoard');
+  board.innerHTML = standings.map((team, i) => {
+    const pos = i + 1;
+    const eliminated = !team.alive && team.cutCount >= 2;
+
+    return `<div class="pool-row ${team.isMe ? 'me' : ''} ${eliminated ? 'eliminated' : ''}">
+      <div class="pool-pos ${pos === 1 ? 'first' : ''}">${pos}</div>
+      <div class="pool-body">
+        <div class="pool-name">${team.name} ${team.isMe ? '<span style="color:var(--champagne);font-size:11px;">(YOU)</span>' : ''}</div>
+        <div class="pool-golfers">
+          ${team.golfers.map(g => {
+            const isCut = g.status === 'cut';
+            const isScoring = team.scoringGolfers.includes(g.name);
+            const cls = isCut ? 'cut' : isScoring ? 'scoring' : '';
+            const scoreText = isCut ? 'CUT' : (g.score !== null ? fmtScore(g.score) : '--');
+            return `<span class="pool-g ${cls}">${g.name} <span class="g-score">${scoreText}</span></span>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="pool-score ${team.teamScore !== null && team.teamScore < 0 ? 'negative' : ''}">
+        ${team.teamScore !== null ? fmtScore(team.teamScore) : '--'}
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('lastUpdated').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+}
+
+// ===== ESPN Live Scores =====
+const ESPN_URL = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard?event=401811941';
+
+let autoRefreshTimer = null;
+
+// Name matching: ESPN names may differ slightly from our list
+function normalizeNameForMatch(name) {
+  return name.toLowerCase()
+    .replace(/[áàâä]/g, 'a').replace(/[éèêë]/g, 'e').replace(/[íìîï]/g, 'i')
+    .replace(/[óòôö]/g, 'o').replace(/[úùûü]/g, 'u').replace(/[ñ]/g, 'n')
+    .replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function findPoolGolferName(espnName) {
+  // Direct match first
+  const allGolfers = new Set();
+  pool.teams.forEach(t => t.golfers.forEach(g => { if (g) allGolfers.add(g); }));
+
+  for (const name of allGolfers) {
+    if (name === espnName) return name;
+  }
+
+  // Normalized match
+  const espnNorm = normalizeNameForMatch(espnName);
+  for (const name of allGolfers) {
+    if (normalizeNameForMatch(name) === espnNorm) return name;
+  }
+
+  // Last-name match as fallback
+  const espnLast = espnNorm.split(' ').pop();
+  for (const name of allGolfers) {
+    const poolLast = normalizeNameForMatch(name).split(' ').pop();
+    if (poolLast === espnLast && espnLast.length > 3) return name;
+  }
+
+  return null;
+}
+
+async function fetchESPN() {
+  const btn = document.getElementById('fetchBtn');
+  const status = document.getElementById('fetchStatus');
+  btn.disabled = true;
+  btn.textContent = 'FETCHING...';
+  status.textContent = '';
+
+  try {
+    const resp = await fetch(ESPN_URL);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    const event = data.events?.[0];
+    if (!event) throw new Error('No event data');
+
+    const competitors = event.competitions?.[0]?.competitors || [];
+    let matched = 0;
+    let total = 0;
+
+    competitors.forEach(c => {
+      const name = c.athlete?.displayName || c.athlete?.fullName || '';
+      if (!name) return;
+      total++;
+
+      const poolName = findPoolGolferName(name);
+      if (!poolName) return;
+
+      matched++;
+
+      // Parse score
+      const scoreStr = c.score?.displayValue || c.score || '';
+      const status = c.status?.type?.name || '';
+
+      if (status === 'STATUS_CUT' || scoreStr === 'CUT' || scoreStr === 'MC') {
+        pool.scores[poolName] = { score: null, status: 'cut' };
+      } else if (status === 'STATUS_WITHDRAWN' || scoreStr === 'WD') {
+        pool.scores[poolName] = { score: null, status: 'cut' };
+      } else {
+        // Parse the score relative to par
+        let score = null;
+        if (scoreStr === 'E' || scoreStr === '0') {
+          score = 0;
+        } else if (typeof scoreStr === 'string' && scoreStr.match(/^[+-]?\d+$/)) {
+          score = parseInt(scoreStr);
+        } else if (typeof c.score === 'number') {
+          score = c.score;
+        } else {
+          // Try parsing displayValue
+          const dv = c.score?.displayValue;
+          if (dv === 'E') score = 0;
+          else if (dv) score = parseInt(dv) || null;
+        }
+
+        // Also check linescores for total relative to par
+        if (score === null && c.linescores) {
+          // Sum up round scores vs par
+          // Actually ESPN score field should have the total
+        }
+
+        // ESPN sometimes uses 'score' as total strokes, need to check
+        // The displayValue in the competitor.score should be relative to par
+        if (score !== null) {
+          pool.scores[poolName] = { score, status: 'active' };
+        }
+      }
+    });
+
+    saveData();
+    renderLive();
+
+    status.textContent = `Updated ${matched} pool golfers (${total} in field)`;
+    status.style.color = '#4ADE80';
+  } catch (err) {
+    status.textContent = `Error: ${err.message}`;
+    status.style.color = 'var(--red)';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'FETCH LIVE SCORES';
+  }
+}
+
+function toggleAutoRefresh() {
+  const checked = document.getElementById('autoRefresh').checked;
+  if (checked) {
+    fetchESPN();
+    autoRefreshTimer = setInterval(fetchESPN, 5 * 60 * 1000); // 5 minutes
+  } else {
+    if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+}
+
+// ===== Trades =====
+let tradeSelections = { a: [], b: [] };
+
+function openTrade() {
+  if (pool.teams.length < 2) { alert('Need at least 2 teams to trade'); return; }
+  tradeSelections = { a: [], b: [] };
+
+  const selA = document.getElementById('tradeTeamA');
+  const selB = document.getElementById('tradeTeamB');
+  selA.innerHTML = pool.teams.map((t, i) => `<option value="${i}">${t.name || 'Team '+(i+1)}</option>`).join('');
+  selB.innerHTML = pool.teams.map((t, i) => `<option value="${i}">${t.name || 'Team '+(i+1)}</option>`).join('');
+  selB.value = Math.min(1, pool.teams.length - 1);
+  renderTradeGolfers();
+  document.getElementById('tradeModal').classList.add('show');
+}
+
+function closeTrade() {
+  document.getElementById('tradeModal').classList.remove('show');
+}
+
+function renderTradeGolfers() {
+  const iA = parseInt(document.getElementById('tradeTeamA').value);
+  const iB = parseInt(document.getElementById('tradeTeamB').value);
+  tradeSelections = { a: [], b: [] };
+
+  function makeCheckboxes(team, side, containerId) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = team.golfers.filter(g => g).map(g =>
+      `<label style="display:flex;align-items:center;gap:6px;padding:6px 0;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);">
+        <input type="checkbox" onchange="toggleTradeGolfer('${side}','${g}',this.checked)"> ${g}
+      </label>`
+    ).join('') || '<div style="font-size:12px;color:var(--text-dim);">No golfers</div>';
+  }
+
+  makeCheckboxes(pool.teams[iA], 'a', 'tradeGolfersA');
+  makeCheckboxes(pool.teams[iB], 'b', 'tradeGolfersB');
+}
+
+function toggleTradeGolfer(side, name, checked) {
+  if (checked) tradeSelections[side].push(name);
+  else tradeSelections[side] = tradeSelections[side].filter(n => n !== name);
+}
+
+function executeTrade() {
+  const a = tradeSelections.a;
+  const b = tradeSelections.b;
+
+  if (a.length === 0 || b.length === 0) { alert('Select at least 1 golfer from each side'); return; }
+  if (a.length !== b.length) { alert('Trade must be equal: ' + a.length + ' vs ' + b.length); return; }
+
+  const iA = parseInt(document.getElementById('tradeTeamA').value);
+  const iB = parseInt(document.getElementById('tradeTeamB').value);
+  if (iA === iB) { alert('Cannot trade with same team'); return; }
+
+  const teamA = pool.teams[iA];
+  const teamB = pool.teams[iB];
+
+  // Swap: remove from A, add B's players; remove from B, add A's players
+  a.forEach(name => {
+    const idx = teamA.golfers.indexOf(name);
+    if (idx >= 0) teamA.golfers[idx] = '';
+  });
+  b.forEach(name => {
+    const idx = teamB.golfers.indexOf(name);
+    if (idx >= 0) teamB.golfers[idx] = '';
+  });
+
+  // Fill empty slots
+  b.forEach(name => {
+    const idx = teamA.golfers.indexOf('');
+    if (idx >= 0) teamA.golfers[idx] = name;
+  });
+  a.forEach(name => {
+    const idx = teamB.golfers.indexOf('');
+    if (idx >= 0) teamB.golfers[idx] = name;
+  });
+
+  saveData();
+  closeTrade();
+
+  // Re-render whatever view is active
+  if (document.getElementById('setupView').classList.contains('active')) renderSetup();
+  else renderLive();
+
+  alert('Trade complete: ' + a.join(', ') + ' <-> ' + b.join(', '));
+}
+
+// ===== Mode switching =====
+function switchMode(mode) {
+  document.querySelectorAll('.mode-pill').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+
+  if (mode === 'setup') {
+    document.querySelectorAll('.mode-pill')[0].classList.add('active');
+    document.getElementById('setupView').classList.add('active');
+    renderSetup();
+  } else {
+    document.querySelectorAll('.mode-pill')[1].classList.add('active');
+    document.getElementById('liveView').classList.add('active');
+    renderLive();
+  }
+}
+
+// ===== Init =====
+loadData();
+if (pool.teams.length === 0) {
+  // Scaffold with some empty teams
+  for (let i = 0; i < 8; i++) pool.teams.push({ name: '', golfers: ['', '', ''] });
+  saveData();
+}
+renderSetup();
+</script>
+</body>
+</html>

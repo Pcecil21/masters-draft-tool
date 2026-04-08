@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Masters Draft Tool 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --augusta: #00563F;
+    --augusta-deep: #003D2B;
+    --augusta-black: #0A1F16;
+    --fairway: #0B4A2E;
+    --champagne: #C9A84C;
+    --champagne-pale: #E8D48B;
+    --champagne-dim: rgba(201,168,76,0.3);
+    --azalea: #D4567A;
+    --sky: #4A90D9;
+    --bg: #080E0B;
+    --bg-card: #0F1A14;
+    --bg-elevated: #142219;
+    --bg-hover: #1A2E23;
+    --border: #1E3528;
+    --border-light: #2A4A38;
+    --text: #D4DDD8;
+    --text-dim: #6B8A78;
+    --text-bright: #F0F5F2;
+    --red: #E85454;
+    --red-bg: rgba(232,84,84,0.1);
+    --yellow: #D4A032;
+    --mono: 'DM Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Noise texture overlay for depth */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ===== HEADER — Augusta ribbon ===== */
+  .header {
+    background: linear-gradient(180deg, var(--augusta) 0%, var(--augusta-deep) 100%);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px solid var(--champagne);
+    position: relative;
+    flex-wrap: wrap;
+    gap: 8px;
+    z-index: 50;
+  }
+
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, var(--champagne-dim), transparent);
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    color: var(--champagne);
+    letter-spacing: 3px;
+    line-height: 1;
+  }
+
+  .logo span {
+    font-size: 13px;
+    color: var(--champagne-pale);
+    letter-spacing: 1px;
+    opacity: 0.7;
+    margin-left: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 400;
+  }
+
+  .header-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .hdr-label {
+    font-size: 11px;
+    color: var(--champagne-pale);
+    opacity: 0.6;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 500;
+  }
+
+  .hdr-input {
+    background: rgba(0,0,0,0.3);
+    color: var(--champagne-pale);
+    border: 1px solid rgba(201,168,76,0.2);
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: var(--mono);
+    font-weight: 500;
+  }
+
+  .hdr-input:focus { outline: none; border-color: var(--champagne); }
+
+  .pick-indicator {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 2px;
+    padding: 5px 14px;
+    border-radius: 4px;
+    background: rgba(0,0,0,0.4);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+
+  .pick-indicator.live {
+    background: var(--augusta);
+    color: var(--champagne);
+    border-color: var(--champagne);
+    animation: livePulse 2s ease-in-out infinite;
+  }
+
+  @keyframes livePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(201,168,76,0.3); }
+    50% { box-shadow: 0 0 16px 4px rgba(201,168,76,0.15); }
+  }
+
+  .hdr-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: rgba(0,0,0,0.3);
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+  }
+
+  .hdr-btn:hover { border-color: var(--text-dim); color: var(--text); }
+  .hdr-btn.danger { border-color: rgba(232,84,84,0.3); color: var(--red); }
+  .hdr-btn.danger:hover { border-color: var(--red); background: var(--red-bg); }
+
+  /* ===== PICK TICKER — broadcast-style crawl ===== */
+  .ticker {
+    background: var(--augusta-black);
+    border-bottom: 1px solid var(--border);
+    padding: 7px 16px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .ticker::-webkit-scrollbar { display: none; }
+
+  .ticker-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: var(--champagne);
+    flex-shrink: 0;
+    padding-right: 8px;
+    border-right: 1px solid var(--border);
+    margin-right: 4px;
+  }
+
+  .tick {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  .tick.mine { background: rgba(11,74,46,0.5); color: var(--champagne-pale); border: 1px solid var(--border-light); }
+  .tick.opp { color: var(--text-dim); }
+  .tick .tick-num { font-family: var(--mono); font-size: 10px; opacity: 0.5; }
+
+  .ticker-empty { font-size: 11px; color: var(--text-dim); font-style: italic; }
+
+  /* ===== LAYOUT ===== */
+  .shell {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 82px);
+  }
+
+  .tab-bar {
+    display: flex;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 11px;
+    text-align: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 15px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: var(--text-dim);
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .tab-btn.active { color: var(--champagne); border-bottom-color: var(--champagne); }
+
+  .panels { flex: 1; overflow: hidden; }
+  .panel { display: none; height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .panel.active { display: block; }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar { padding: 16px; background: var(--bg-card); }
+
+  .section-head {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 14px;
+    letter-spacing: 2px;
+    color: var(--champagne);
+    margin: 16px 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-head:first-child { margin-top: 0; }
+
+  .section-head::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border-light), transparent);
+  }
+
+  /* Roster slots */
+  .r-slot {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    min-height: 42px;
+    transition: all 0.25s;
+  }
+
+  .r-slot.filled {
+    border-style: solid;
+    border-color: var(--augusta);
+    background: rgba(11,74,46,0.15);
+  }
+
+  .r-slot .r-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    width: 24px;
+    flex-shrink: 0;
+  }
+
+  .r-slot .r-name {
+    font-size: 13px;
+    font-weight: 600;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .r-slot .r-data {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .r-slot .r-remove {
+    background: none;
+    border: none;
+    color: var(--red);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 4px;
+    margin-left: 6px;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+  }
+
+  .r-slot .r-remove:hover { opacity: 1; }
+
+  /* Survival meter */
+  .meter {
+    height: 26px;
+    background: var(--bg);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    border: 1px solid var(--border);
+    position: relative;
+  }
+
+  .meter-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1), background 0.6s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--text-bright);
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+
+  .stat-row:last-child { border-bottom: none; }
+  .s-label { color: var(--text-dim); }
+  .s-val { font-family: var(--mono); font-weight: 500; }
+  .s-val.good { color: #4ADE80; }
+  .s-val.warn { color: var(--yellow); }
+  .s-val.bad { color: var(--red); }
+
+  /* Recommendations */
+  .rec {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 0;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .rec:last-child { border-bottom: none; }
+  .rec-i { font-family: var(--mono); font-weight: 500; color: var(--champagne); width: 16px; flex-shrink: 0; }
+  .rec-n { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rec-d { font-family: var(--mono); font-size: 10px; color: var(--text-dim); flex-shrink: 0; }
+  .rec-r { font-size: 10px; color: var(--champagne); opacity: 0.7; flex-shrink: 0; }
+
+  /* ===== BOARD ===== */
+  .board { background: var(--bg); }
+
+  .board-bar {
+    display: flex;
+    gap: 8px;
+    padding: 10px 14px;
+    align-items: center;
+    flex-wrap: wrap;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .board-search {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+    flex: 1;
+    min-width: 100px;
+    transition: border-color 0.2s;
+  }
+
+  .board-search:focus { outline: none; border-color: var(--augusta); }
+
+  .chips { display: flex; gap: 4px; }
+
+  .chip {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .chip.active {
+    background: var(--augusta);
+    border-color: var(--augusta);
+    color: var(--champagne-pale);
+  }
+
+  .board-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-left: auto;
+  }
+
+  /* Golfer rows */
+  .g-list { padding: 0 14px 80px; }
+
+  .tier-bar {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 13px;
+    letter-spacing: 2px;
+    padding: 5px 10px;
+    border-radius: 4px;
+    margin: 10px 0 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .tier-bar span {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0;
+    opacity: 0.6;
+  }
+
+  .t1 { background: linear-gradient(90deg, rgba(201,168,76,0.25), rgba(201,168,76,0.05)); color: var(--champagne); border-left: 3px solid var(--champagne); }
+  .t2 { background: linear-gradient(90deg, rgba(74,144,217,0.2), rgba(74,144,217,0.03)); color: var(--sky); border-left: 3px solid var(--sky); }
+  .t3 { background: linear-gradient(90deg, rgba(74,222,128,0.15), rgba(74,222,128,0.02)); color: #4ADE80; border-left: 3px solid #4ADE80; }
+  .t4 { background: linear-gradient(90deg, rgba(212,160,50,0.15), rgba(212,160,50,0.02)); color: var(--yellow); border-left: 3px solid var(--yellow); }
+  .t5 { background: linear-gradient(90deg, rgba(107,138,120,0.15), rgba(107,138,120,0.02)); color: var(--text-dim); border-left: 3px solid var(--text-dim); }
+  .t6 { background: linear-gradient(90deg, rgba(107,138,120,0.08), transparent); color: var(--text-dim); border-left: 3px solid var(--border-light); }
+  .t7 { background: rgba(0,0,0,0.2); color: var(--text-dim); border-left: 3px solid var(--border); opacity: 0.7; }
+
+  .g {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 6px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .g:active { background: var(--bg-hover); }
+
+  .g.out {
+    opacity: 0.2;
+    pointer-events: none;
+  }
+
+  .g.mine {
+    background: rgba(11,74,46,0.12);
+    border-left: 3px solid var(--augusta);
+    padding-left: 3px;
+    pointer-events: none;
+  }
+
+  .g.hot {
+    border-left: 3px solid var(--champagne);
+    padding-left: 3px;
+  }
+
+  .g-rank {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-dim);
+    width: 22px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .g-pip {
+    width: 3px;
+    height: 22px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .pip1 { background: var(--champagne); }
+  .pip2 { background: var(--sky); }
+  .pip3 { background: #4ADE80; }
+  .pip4 { background: var(--yellow); }
+  .pip5 { background: var(--text-dim); }
+  .pip6 { background: var(--border-light); }
+  .pip7 { background: var(--border); }
+
+  .g-body { flex: 1; min-width: 0; }
+
+  .g-name {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .g-meta {
+    font-size: 10px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .g-tags { display: flex; gap: 4px; flex-shrink: 0; }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  .tag-mc { background: rgba(74,222,128,0.12); color: #4ADE80; }
+  .tag-mc.w { background: rgba(212,160,50,0.12); color: var(--yellow); }
+  .tag-mc.d { background: rgba(232,84,84,0.12); color: var(--red); }
+  .tag-sc { background: rgba(74,144,217,0.12); color: var(--sky); }
+
+  /* ===== MODAL ===== */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(8,14,11,0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.15s ease;
+  }
+
+  .overlay.show { display: flex; }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  .modal {
+    background: linear-gradient(180deg, var(--bg-elevated), var(--bg-card));
+    border: 1px solid var(--border-light);
+    border-radius: 16px;
+    padding: 24px;
+    width: 320px;
+    max-width: 90vw;
+    text-align: center;
+    animation: slideUp 0.2s ease;
+  }
+
+  .modal-golfer {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 2px;
+    color: var(--text-bright);
+    margin-bottom: 2px;
+  }
+
+  .modal-detail {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+
+  .modal-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .m-btn {
+    font-family: 'DM Sans', sans-serif;
+    padding: 14px;
+    border-radius: 10px;
+    border: none;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+  }
+
+  .m-btn.me {
+    background: linear-gradient(135deg, var(--augusta), var(--fairway));
+    color: var(--champagne-pale);
+    border: 1px solid rgba(201,168,76,0.3);
+  }
+
+  .m-btn.me:active { transform: scale(0.97); }
+
+  .m-btn.opp {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border-light);
+  }
+
+  .m-btn.opp:active { transform: scale(0.97); }
+
+  .m-btn.cancel {
+    background: none;
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 8px;
+  }
+
+  /* ===== DESKTOP ===== */
+  @media (min-width: 768px) {
+    body { overflow: hidden; }
+    .logo { font-size: 28px; }
+    .header { padding: 12px 24px; }
+    .tab-bar { display: none; }
+
+    .shell { height: calc(100vh - 82px); }
+
+    .panels {
+      display: grid !important;
+      grid-template-columns: 340px 1fr;
+      height: 100%;
+    }
+
+    .panel {
+      display: block !important;
+      overflow-y: auto;
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--border);
+    }
+
+    .g:hover { background: var(--bg-hover); }
+    .g-list { padding-bottom: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">MASTERS<span>DRAFT 2026</span></div>
+  <div class="header-controls">
+    <span class="hdr-label">Teams</span>
+    <input type="number" class="hdr-input" id="draftSize" value="10" min="2" max="30" style="width:50px;text-align:center;">
+    <span class="hdr-label">Slot</span>
+    <select class="hdr-input" id="mySlot"></select>
+    <span class="pick-indicator" id="pickBadge">PICK 1</span>
+    <button class="hdr-btn" onclick="undoLastPick()">UNDO</button>
+    <button class="hdr-btn danger" onclick="resetDraft()">RESET</button>
+  </div>
+</div>
+
+<div class="ticker" id="pickTicker"></div>
+
+<div class="shell">
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('board')">BOARD</button>
+    <button class="tab-btn" onclick="switchTab('roster')">MY TEAM</button>
+  </div>
+  <div class="panels" id="panels">
+    <div class="panel sidebar" id="rosterPanel">
+      <div class="section-head" id="recTitle">BEST FIRST PICKS</div>
+      <div id="vonaRecs"></div>
+      <div class="section-head">MY ROSTER</div>
+      <div id="rosterSlots"></div>
+      <div class="section-head">TIEBREAKER</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="font-size:11px;color:var(--text-dim);">Winning 72-hole score:</span>
+        <input type="number" id="tiebreaker" value="-12" style="width:60px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:6px;color:var(--champagne);font-family:var(--mono);font-size:14px;font-weight:600;">
+      </div>
+      <div style="font-size:10px;color:var(--text-dim);margin-bottom:12px;">Recent winners: Rory -11 (2025), Scheffler -11 (2024), Rahm -12 (2023)</div>
+
+      <div class="section-head">PROJECTIONS</div>
+      <div style="margin-bottom:6px;">
+        <div style="font-size:10px;color:var(--text-dim);margin-bottom:3px;font-family:var(--mono);">P(2+ MAKE CUT)</div>
+        <div class="meter"><div class="meter-fill" id="survivalFill" style="width:0%">--</div></div>
+      </div>
+      <div id="teamStats"></div>
+    </div>
+    <div class="panel board active" id="boardPanel">
+      <div class="board-bar">
+        <input type="text" class="board-search" id="searchBox" placeholder="Search golfers...">
+        <div class="chips">
+          <button class="chip active" data-filter="available" onclick="setFilter('available')">Available</button>
+          <button class="chip" data-filter="all" onclick="setFilter('all')">All</button>
+        </div>
+        <div class="chips">
+          <button class="chip active" data-sort="composite" onclick="setSort('composite')">Best</button>
+          <button class="chip" data-sort="mc" onclick="setSort('mc')">MC%</button>
+          <button class="chip" data-sort="proj" onclick="setSort('proj')">Score</button>
+          <button class="chip" data-sort="adp" onclick="setSort('adp')">ADP</button>
+        </div>
+        <span class="board-count" id="availableCount"></span>
+      </div>
+      <div class="g-list" id="golferBoard"></div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="confirmModal">
+  <div class="modal">
+    <div class="modal-golfer" id="modalName"></div>
+    <div class="modal-detail" id="modalStats"></div>
+    <div class="modal-actions">
+      <button class="m-btn me" onclick="confirmDraft('me')">Draft to My Team</button>
+      <button class="m-btn opp" onclick="confirmDraft('opp')">Opponent Drafted</button>
+      <button class="m-btn cancel" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const GOLFERS = [
+  { name: "Scottie Scheffler", winOdds: 490, mcOdds: -1300, top5: 106, top10: -192, top20: -450, tier: 1, augustaHistory: "2W (2022, 2024), T10 2023, T2 2025", notes: "Best player in world, 2x champ", debut: false, adp: 1 },
+  { name: "Jon Rahm", winOdds: 910, mcOdds: -800, top5: 175, top10: -120, top20: -280, tier: 1, augustaHistory: "T5 2023, T7 2022, MC 2025", notes: "Elite SG:OTT, LIV form unclear", debut: false, adp: 2 },
+  { name: "Bryson DeChambeau", winOdds: 1075, mcOdds: -650, top5: 210, top10: 104, top20: -220, tier: 1, augustaHistory: "T2 2025, T34 2022, MC 2023", notes: "Massive length, Par 5 monster", debut: false, adp: 3 },
+  { name: "Rory McIlroy", winOdds: 1175, mcOdds: -650, top5: 225, top10: 108, top20: -210, tier: 1, augustaHistory: "W 2025, T5 2022, T7 2023, T2 2024", notes: "Defending champ, putting 102nd", debut: false, adp: 4 },
+  { name: "Ludvig Aberg", winOdds: 1700, mcOdds: -500, top5: 320, top10: 154, top20: -144, tier: 2, augustaHistory: "T14 2024, T22 2025", notes: "Elite ball-striker, improving", debut: false, adp: 5 },
+  { name: "Xander Schauffele", winOdds: 1800, mcOdds: -440, top5: 305, top10: 140, top20: -172, tier: 2, augustaHistory: "T3 2021, T6 2019", notes: "Outstanding Augusta record", debut: false, adp: 6 },
+  { name: "Tommy Fleetwood", winOdds: 2300, mcOdds: -390, top5: 370, top10: 168, top20: -144, tier: 2, augustaHistory: "T14 2023, T22 2024", notes: "Strong approach, good irons", debut: false, adp: 7 },
+  { name: "Cameron Young", winOdds: 2300, mcOdds: -430, top5: 390, top10: 182, top20: -128, tier: 2, augustaHistory: "T12 2024", notes: "Big hitter, boom-or-bust", debut: false, adp: 8 },
+  { name: "Matt Fitzpatrick", winOdds: 2350, mcOdds: -400, top5: 390, top10: 176, top20: -134, tier: 2, augustaHistory: "T5 2024, T13 2023", notes: "Precision, elite approach", debut: false, adp: 9 },
+  { name: "Hideki Matsuyama", winOdds: 2700, mcOdds: -270, top5: 435, top10: 196, top20: -122, tier: 3, augustaHistory: "W 2021, T2 2024, T5 2015", notes: "Masters champ, elite approach", debut: false, adp: 10 },
+  { name: "Collin Morikawa", winOdds: 3100, mcOdds: -340, top5: 480, top10: 215, top20: -112, tier: 3, augustaHistory: "T13 2023, T21 2022", notes: "Best iron player on tour", debut: false, adp: 11 },
+  { name: "Robert MacIntyre", winOdds: 3400, mcOdds: -310, top5: 530, top10: 240, top20: 100, tier: 3, augustaHistory: "T12 2021", notes: "Lefty, good short game", debut: false, adp: 12 },
+  { name: "Min Woo Lee", winOdds: 3500, mcOdds: -300, top5: 540, top10: 245, top20: 102, tier: 3, augustaHistory: "MC 2024", notes: "Big hitter, limited Augusta exp", debut: false, adp: 13 },
+  { name: "Justin Rose", winOdds: 3500, mcOdds: -250, top5: 580, top10: 270, top20: 116, tier: 3, augustaHistory: "T2 2017, T5 2021, T10 2018", notes: "Augusta specialist, knows course", debut: false, adp: 14 },
+  { name: "Brooks Koepka", winOdds: 3700, mcOdds: -260, top5: 630, top10: 290, top20: 126, tier: 3, augustaHistory: "T2 2019, T7 2023", notes: "Major pedigree, clutch", debut: false, adp: 15 },
+  { name: "Jordan Spieth", winOdds: 4200, mcOdds: -250, top5: 650, top10: 285, top20: 120, tier: 3, augustaHistory: "W 2015, T2 2014/2016, T3 2018", notes: "Augusta legend, knows every slope", debut: false, adp: 16 },
+  { name: "Chris Gotterup", winOdds: 4200, mcOdds: -240, top5: 670, top10: 300, top20: 130, tier: 3, augustaHistory: "Debut", notes: "Hot form, big hitter, debut risk", debut: true, adp: 17 },
+  { name: "Patrick Reed", winOdds: 4300, mcOdds: -265, top5: 670, top10: 300, top20: 126, tier: 4, augustaHistory: "W 2018, T12 2019", notes: "Masters champ, inconsistent", debut: false, adp: 18 },
+  { name: "Viktor Hovland", winOdds: 4500, mcOdds: -275, top5: 690, top10: 310, top20: 132, tier: 4, augustaHistory: "T16 2023, T22 2024", notes: "Elite ball-striking, weak short game", debut: false, adp: 19 },
+  { name: "Russell Henley", winOdds: 4700, mcOdds: -245, top5: 660, top10: 280, top20: 114, tier: 4, augustaHistory: "T12 2024", notes: "Underrated, consistent", debut: false, adp: 20 },
+  { name: "Si Woo Kim", winOdds: 4900, mcOdds: -370, top5: 680, top10: 290, top20: 118, tier: 4, augustaHistory: "MC 2023, T14 2022", notes: "High MC rate, creative", debut: false, adp: 21 },
+  { name: "Justin Thomas", winOdds: 5400, mcOdds: -184, top5: 830, top10: 375, top20: 160, tier: 4, augustaHistory: "T4 2020, T21 2023", notes: "Down year but elite talent", debut: false, adp: 22 },
+  { name: "Akshay Bhatia", winOdds: 5700, mcOdds: -220, top5: 820, top10: 355, top20: 146, tier: 4, augustaHistory: "T29 2024", notes: "Young lefty, high ceiling", debut: false, adp: 23 },
+  { name: "Patrick Cantlay", winOdds: 5800, mcOdds: -205, top5: 820, top10: 355, top20: 146, tier: 4, augustaHistory: "T9 2019, T17 2023", notes: "Smart, consistent, low-variance", debut: false, adp: 24 },
+  { name: "Adam Scott", winOdds: 6000, mcOdds: -220, top5: 850, top10: 365, top20: 148, tier: 4, augustaHistory: "W 2013, T9 2020, T18 2023", notes: "Masters champ, Augusta vet", debut: false, adp: 25 },
+  { name: "Jason Day", winOdds: 6700, mcOdds: -215, top5: 900, top10: 380, top20: 152, tier: 5, augustaHistory: "T2 2011, T3 2013, T5 2019", notes: "Augusta specialist", debut: false, adp: 26 },
+  { name: "Jake Knapp", winOdds: 6700, mcOdds: -184, top5: 960, top10: 415, top20: 172, tier: 5, augustaHistory: "Debut", notes: "Big hitter, debut", debut: true, adp: 27 },
+  { name: "Shane Lowry", winOdds: 6800, mcOdds: -210, top5: 920, top10: 385, top20: 154, tier: 5, augustaHistory: "T6 2023, T25 2024", notes: "Major winner, great short game", debut: false, adp: 28 },
+  { name: "Sam Burns", winOdds: 7000, mcOdds: -210, top5: 960, top10: 410, top20: 166, tier: 5, augustaHistory: "T15 2023", notes: "Talented, inconsistent", debut: false, adp: 29 },
+  { name: "J.J. Spaun", winOdds: 7200, mcOdds: -188, top5: 1000, top10: 430, top20: 176, tier: 5, augustaHistory: "MC 2022", notes: "Consistent", debut: false, adp: 30 },
+  { name: "Sepp Straka", winOdds: 7400, mcOdds: -194, top5: 990, top10: 420, top20: 168, tier: 5, augustaHistory: "T12 2023", notes: "Steady, high floor", debut: false, adp: 31 },
+  { name: "Tyrrell Hatton", winOdds: 7600, mcOdds: -188, top5: 1025, top10: 440, top20: 178, tier: 5, augustaHistory: "T13 2024", notes: "LIV, temperamental", debut: false, adp: 32 },
+  { name: "Corey Conners", winOdds: 7800, mcOdds: -192, top5: 1025, top10: 435, top20: 172, tier: 5, augustaHistory: "T6 2020, T10 2021", notes: "ELITE irons, great Augusta record", debut: false, adp: 33 },
+  { name: "Nicolai Hojgaard", winOdds: 7800, mcOdds: -180, top5: 1050, top10: 445, top20: 180, tier: 5, augustaHistory: "T30 2024", notes: "Rising talent", debut: false, adp: 34 },
+  { name: "Maverick McNealy", winOdds: 8400, mcOdds: -178, top5: 1100, top10: 460, top20: 184, tier: 6, augustaHistory: "MC 2024", notes: "Steady floor", debut: false, adp: 35 },
+  { name: "Jacob Bridgeman", winOdds: 8600, mcOdds: -176, top5: 1125, top10: 465, top20: 184, tier: 6, augustaHistory: "Debut", notes: "DG Points leader", debut: true, adp: 36 },
+  { name: "Kurt Kitayama", winOdds: 9800, mcOdds: -180, top5: 1225, top10: 510, top20: 200, tier: 6, augustaHistory: "T38 2023", notes: "Can score", debut: false, adp: 37 },
+  { name: "Harris English", winOdds: 10000, mcOdds: -162, top5: 1250, top10: 500, top20: 198, tier: 6, augustaHistory: "T10 2020, T21 2021", notes: "Good Augusta results", debut: false, adp: 38 },
+  { name: "Daniel Berger", winOdds: 10500, mcOdds: -150, top5: 1300, top10: 530, top20: 205, tier: 6, augustaHistory: "T12 2021", notes: "Talented, injury risk", debut: false, adp: 39 },
+  { name: "Gary Woodland", winOdds: 10500, mcOdds: -158, top5: 1350, top10: 560, top20: 220, tier: 6, augustaHistory: "T15 2019", notes: "Major winner", debut: false, adp: 40 },
+  { name: "Ben Griffin", winOdds: 11000, mcOdds: -160, top5: 1325, top10: 540, top20: 210, tier: 6, augustaHistory: "Debut", notes: "Debut risk", debut: true, adp: 41 },
+  { name: "Cameron Smith", winOdds: 11000, mcOdds: -166, top5: 1425, top10: 590, top20: 230, tier: 6, augustaHistory: "T3 2020, T5 2022", notes: "Elite short game, great Augusta", debut: false, adp: 42 },
+  { name: "Max Homa", winOdds: 12000, mcOdds: -134, top5: 1550, top10: 650, top20: 260, tier: 6, augustaHistory: "T16 2024", notes: "Inconsistent", debut: false, adp: 43 },
+  { name: "Keegan Bradley", winOdds: 13500, mcOdds: -132, top5: 1600, top10: 650, top20: 250, tier: 6, augustaHistory: "T6 2023", notes: "Ryder Cup captain", debut: false, adp: 44 },
+  { name: "Rasmus Hojgaard", winOdds: 12500, mcOdds: -134, top5: 1550, top10: 640, top20: 250, tier: 6, augustaHistory: "MC 2024", notes: "Twin of Nicolai", debut: false, adp: 45 },
+  { name: "Alex Noren", winOdds: 16000, mcOdds: -125, top5: 1800, top10: 710, top20: 265, tier: 6, augustaHistory: "MC 2019", notes: "Steady veteran", debut: false, adp: 46 },
+  { name: "Nick Taylor", winOdds: 19500, mcOdds: -116, top5: 2100, top10: 800, top20: 295, tier: 6, augustaHistory: "T17 2024", notes: "Under the radar", debut: false, adp: 47 },
+  { name: "Brian Harman", winOdds: 22500, mcOdds: -118, top5: 2400, top10: 910, top20: 335, tier: 6, augustaHistory: "T6 2023", notes: "Major winner, crafty", debut: false, adp: 48 },
+  { name: "Wyndham Clark", winOdds: 21000, mcOdds: 102, top5: 2500, top10: 1000, top20: 390, tier: 6, augustaHistory: "MC 2024", notes: "US Open winner", debut: false, adp: 49 },
+  { name: "Sergio Garcia", winOdds: 24000, mcOdds: -104, top5: 2600, top10: 980, top20: 360, tier: 6, augustaHistory: "W 2017, T4 2014, T2 2016", notes: "Augusta LEGEND", debut: false, adp: 50 },
+  { name: "Dustin Johnson", winOdds: 26000, mcOdds: 100, top5: 2800, top10: 1050, top20: 390, tier: 6, augustaHistory: "W 2020, T2 2019, T6 2016", notes: "Masters champ, declining", debut: false, adp: 51 },
+  { name: "Ryan Fox", winOdds: 21000, mcOdds: 106, top5: 2350, top10: 920, top20: 345, tier: 6, augustaHistory: "MC 2023", notes: "Big hitter", debut: false, adp: 52 },
+  { name: "Marco Penge", winOdds: 14000, mcOdds: -125, top5: 1750, top10: 700, top20: 270, tier: 6, augustaHistory: "Debut", notes: "European", debut: true, adp: 53 },
+  { name: "Harry Hall", winOdds: 15500, mcOdds: -128, top5: 1800, top10: 710, top20: 270, tier: 6, augustaHistory: "Debut", notes: "Solid form", debut: true, adp: 54 },
+  { name: "Ryan Gerard", winOdds: 16000, mcOdds: -126, top5: 1850, top10: 720, top20: 270, tier: 6, augustaHistory: "Debut", notes: "Debut", debut: true, adp: 55 },
+  { name: "Michael Kim", winOdds: 22500, mcOdds: 100, top5: 2450, top10: 940, top20: 350, tier: 7, augustaHistory: "Debut", notes: "Debut", debut: true, adp: 56 },
+  { name: "Max Greyserman", winOdds: 22500, mcOdds: 102, top5: 2500, top10: 970, top20: 365, tier: 7, augustaHistory: "Debut", notes: "Debut", debut: true, adp: 57 },
+  { name: "Aaron Rai", winOdds: 23000, mcOdds: -108, top5: 2500, top10: 950, top20: 350, tier: 7, augustaHistory: "Debut", notes: "Consistent", debut: true, adp: 58 },
+  { name: "Kristoffer Reitan", winOdds: 23000, mcOdds: 108, top5: 2500, top10: 980, top20: 365, tier: 7, augustaHistory: "Debut", notes: "Debut", debut: true, adp: 59 },
+  { name: "Casey Jarvis", winOdds: 24000, mcOdds: -102, top5: 2600, top10: 980, top20: 360, tier: 7, augustaHistory: "Debut", notes: "Young SA talent", debut: true, adp: 60 },
+  { name: "Carlos Ortiz", winOdds: 25000, mcOdds: 106, top5: 2700, top10: 1025, top20: 380, tier: 7, augustaHistory: "T21 2021", notes: "Mexican", debut: false, adp: 61 },
+  { name: "Tom McKibbin", winOdds: 26000, mcOdds: 100, top5: 2700, top10: 1025, top20: 370, tier: 7, augustaHistory: "Debut", notes: "Young Irish", debut: true, adp: 62 },
+  { name: "Matt McCarty", winOdds: 30000, mcOdds: 120, top5: 3000, top10: 1125, top20: 405, tier: 7, augustaHistory: "Debut", notes: "Debut", debut: true, adp: 63 },
+  { name: "Haotong Li", winOdds: 30000, mcOdds: 112, top5: 3100, top10: 1150, top20: 415, tier: 7, augustaHistory: "T3 2017", notes: "Augusta pedigree", debut: false, adp: 64 },
+  { name: "Andrew Novak", winOdds: 31000, mcOdds: 115, top5: 3100, top10: 1150, top20: 415, tier: 7, augustaHistory: "Debut", notes: "Debut", debut: true, adp: 65 },
+  { name: "Nico Echavarria", winOdds: 34000, mcOdds: 114, top5: 3400, top10: 1250, top20: 445, tier: 7, augustaHistory: "Debut", notes: "Colombian", debut: true, adp: 66 },
+  { name: "Rasmus Neergaard-Petersen", winOdds: 34000, mcOdds: 114, top5: 3400, top10: 1250, top20: 455, tier: 7, augustaHistory: "Debut", notes: "Danish", debut: true, adp: 67 },
+  { name: "Sami Valimaki", winOdds: 39000, mcOdds: 138, top5: 3800, top10: 1350, top20: 475, tier: 7, augustaHistory: "Debut", notes: "Finnish", debut: true, adp: 68 },
+  { name: "Aldrich Potgieter", winOdds: 39000, mcOdds: 134, top5: 4000, top10: 1475, top20: 530, tier: 7, augustaHistory: "Debut", notes: "Young SA", debut: true, adp: 69 },
+  { name: "Johnny Keefer", winOdds: 40000, mcOdds: 128, top5: 3900, top10: 1425, top20: 500, tier: 7, augustaHistory: "Debut", notes: "Amateur", debut: true, adp: 70 },
+  { name: "Michael Brennan", winOdds: 40000, mcOdds: 136, top5: 4000, top10: 1450, top20: 520, tier: 7, augustaHistory: "Debut", notes: "Amateur", debut: true, adp: 71 },
+  { name: "Zach Johnson", winOdds: 55000, mcOdds: 200, top5: 4900, top10: 1650, top20: 550, tier: 7, augustaHistory: "W 2007", notes: "Past champ, 49", debut: false, adp: 72 },
+  { name: "Bubba Watson", winOdds: 55000, mcOdds: 162, top5: 5100, top10: 1750, top20: 600, tier: 7, augustaHistory: "2W (2012, 2014)", notes: "2x champ, semi-retired", debut: false, adp: 73 },
+  { name: "Charl Schwartzel", winOdds: 65000, mcOdds: 156, top5: 5700, top10: 1900, top20: 630, tier: 7, augustaHistory: "W 2011", notes: "Past champ, LIV", debut: false, adp: 74 },
+  { name: "Davis Riley", winOdds: 85000, mcOdds: 144, top5: 7600, top10: 2500, top20: 840, tier: 7, augustaHistory: "MC 2023", notes: "Limited", debut: false, adp: 75 },
+  { name: "Danny Willett", winOdds: 250000, mcOdds: 315, top5: 17000, top10: 5000, top20: 1450, tier: 7, augustaHistory: "W 2016", notes: "Past champ", debut: false, adp: 80 },
+  { name: "Brian Campbell", winOdds: 250000, mcOdds: 380, top5: 17000, top10: 4900, top20: 1425, tier: 7, augustaHistory: "Debut", notes: "Amateur", debut: true, adp: 81 },
+  { name: "Mason Howell", winOdds: 300000, mcOdds: 415, top5: 21000, top10: 6100, top20: 1750, tier: 7, augustaHistory: "Debut", notes: "Amateur", debut: true, adp: 82 },
+  { name: "Ethan Fang", winOdds: 350000, mcOdds: 310, top5: 24000, top10: 7000, top20: 1850, tier: 7, augustaHistory: "Debut", notes: "Amateur", debut: true, adp: 83 },
+  { name: "Pongsapek Laopakdee", winOdds: 350000, mcOdds: 365, top5: 27000, top10: 8000, top20: 2250, tier: 7, augustaHistory: "Debut", notes: "Amateur (Fifa)", debut: true, adp: 84 },
+  { name: "Naoyuki Kataoka", winOdds: 450000, mcOdds: 970, top5: 35000, top10: 9600, top20: 2500, tier: 7, augustaHistory: "Debut", notes: "Amateur", debut: true, adp: 85 },
+  { name: "Vijay Singh", winOdds: 500000, mcOdds: 445, top5: 49000, top10: 17000, top20: 3600, tier: 7, augustaHistory: "W 2000", notes: "Past champ, 63", debut: false, adp: 88 },
+  { name: "Fred Couples", winOdds: 500000, mcOdds: 800, top5: 49000, top10: 19000, top20: 3900, tier: 7, augustaHistory: "W 1992", notes: "Past champ, 66", debut: false, adp: 89 },
+  { name: "Jose Maria Olazabal", winOdds: 500000, mcOdds: 800, top5: 50000, top10: 32000, top20: 6300, tier: 7, augustaHistory: "2W (1994, 1999)", notes: "2x champ, 59", debut: false, adp: 90 },
+  { name: "Mike Weir", winOdds: 500000, mcOdds: 1050, top5: 50000, top10: 24000, top20: 4800, tier: 7, augustaHistory: "W 2003", notes: "Past champ, 55", debut: false, adp: 91 },
+  { name: "Jackson Herrington", winOdds: 500000, mcOdds: 680, top5: 49000, top10: 20000, top20: 4900, tier: 7, augustaHistory: "Debut", notes: "Amateur", debut: true, adp: 86 },
+  { name: "Mateo Pulcini", winOdds: 500000, mcOdds: 490, top5: 50000, top10: 25000, top20: 4900, tier: 7, augustaHistory: "Debut", notes: "Amateur", debut: true, adp: 87 },
+  { name: "Brandon Holtz", winOdds: 500000, mcOdds: 790, top5: 45000, top10: 21000, top20: 7000, tier: 7, augustaHistory: "Debut", notes: "Amateur", debut: true, adp: 92 },
+];
+
+// === Derived stats ===
+function oddsToProb(o) { return o < 0 ? Math.abs(o)/(Math.abs(o)+100) : 100/(o+100); }
+
+GOLFERS.forEach((g, i) => {
+  g.mcPct = Math.min(oddsToProb(g.mcOdds) * 0.95, 0.98);
+  g.winPct = oddsToProb(g.winOdds) * 0.90;
+  g.top5Pct = oddsToProb(g.top5) * 0.92;
+  g.top10Pct = oddsToProb(g.top10) * 0.92;
+  g.top20Pct = oddsToProb(g.top20) * 0.92;
+  g.projScore = 4 - (g.winPct*40) - (g.top10Pct*10) - (g.top20Pct*4);
+  g.projScore = Math.round(g.projScore * 10) / 10;
+  g.variance = Math.max(3, Math.min(12, g.winOdds / 800));
+  g.composite = (g.mcPct*50) + (g.top10Pct*30) + (g.top20Pct*15) + (g.winPct*5);
+  if (!g.debut && g.augustaHistory.includes("W ")) g.composite += 3;
+  if (!g.debut && (g.augustaHistory.includes("T2 ") || g.augustaHistory.includes("T3 "))) g.composite += 1.5;
+  if (g.debut) g.composite -= 2;
+  g.id = i;
+  g.status = 'available';
+});
+GOLFERS.sort((a, b) => b.composite - a.composite);
+GOLFERS.forEach((g, i) => g.rank = i + 1);
+
+// === State ===
+let S = { myRoster: [null,null,null], history: [], pick: 1, size: 10, slot: 1, filter: 'available', sort: 'composite', search: '', pending: null };
+
+// === Core ===
+function myPicks() { const p=[]; for(let r=0;r<3;r++) p.push(r%2===0 ? r*S.size+S.slot : r*S.size+(S.size-S.slot+1)); return p; }
+function isMyTurn() { return myPicks().includes(S.pick) && S.myRoster.filter(g=>g).length < 3; }
+function rosterCount() { return S.myRoster.filter(g=>g).length; }
+
+function survival() {
+  // P(2+ of 3 make cut)
+  const r = S.myRoster.filter(g=>g);
+  if (r.length < 2) return 0;
+  const p = r.map(g=>g.mcPct);
+  if (r.length === 2) return p[0]*p[1]; // both must make it
+  if (r.length === 3) {
+    // P(all 3) + P(exactly 2)
+    const pAll = p[0]*p[1]*p[2];
+    let pEx2 = 0;
+    for (let s=0;s<3;s++) { let v=1-p[s]; for(let j=0;j<3;j++) if(j!==s) v*=p[j]; pEx2+=v; }
+    return pAll + pEx2;
+  }
+  return 0;
+}
+
+function fmt(s) { const r=Math.round(s); return r===0?'E':r>0?'+'+r:''+r; }
+
+function teamProj() {
+  const r = S.myRoster.filter(g=>g);
+  if (!r.length) return {b:'--',rng:'--'};
+  const sc = r.map(g=>g.projScore).sort((a,b)=>a-b);
+  const b2 = sc.slice(0,2).reduce((s,v)=>s+v,0);
+  if (r.length<2) return {b:fmt(sc[0])+` (${r.length}/3)`, rng:'--'};
+  const vs = r.slice(0,2).reduce((s,g)=>s+g.variance,0);
+  return {b:fmt(b2), rng:`${fmt(b2-vs*1.5)} to ${fmt(b2+vs*1.2)}`};
+}
+
+function vona(g) {
+  const av = GOLFERS.filter(x=>x.status==='available'&&x.id!==g.id);
+  if (!av.length) return 0;
+  const st = av.filter(x=>x.tier===g.tier);
+  return g.composite - (st.length?st[0]:av[0]).composite;
+}
+
+function recs() {
+  const av = GOLFERS.filter(g=>g.status==='available');
+  const n = rosterCount();
+  av.forEach(g=>{g.vona=vona(g);});
+  return av.map(g=>{
+    let s=g.composite, r='';
+    if(n===0){s+=g.mcPct*20; r=g.tier<=2?'Elite':'Safe anchor';}
+    if(n===1){const mc=S.myRoster.filter(x=>x).reduce((s,x)=>s*x.mcPct,1); if(mc>0.7){s+=g.top10Pct*15;r='Upside';}else{s+=g.mcPct*25;r='Cut safety';}}
+    if(n===2){s=g.mcPct*70+g.composite*0.3;r='Insurance';if(g.augustaHistory.includes("W ")||g.augustaHistory.includes("T")){s+=5;r='Augusta vet';}}
+    s+=g.vona*3; if(g.vona>2) r+=(r?' + ':'')+'VONA';
+    if(g.debut&&n>=1) s-=5;
+    return {...g, recScore:s, reason:r};
+  }).sort((a,b)=>b.recScore-a.recScore).slice(0,5);
+}
+
+// === Render ===
+function render() {
+  // Slot selector
+  const sel = document.getElementById('mySlot');
+  if (sel.options.length !== S.size) {
+    const prev = S.slot;
+    sel.innerHTML = '';
+    for (let i=1;i<=S.size;i++){const o=document.createElement('option');o.value=i;o.textContent='#'+i;sel.appendChild(o);}
+    sel.value = prev<=S.size?prev:1;
+    S.slot = parseInt(sel.value);
+  }
+
+  // Pick badge
+  const badge = document.getElementById('pickBadge');
+  badge.textContent = isMyTurn() ? `PICK ${S.pick} — YOUR TURN` : `PICK ${S.pick}`;
+  badge.classList.toggle('live', isMyTurn());
+
+  // Ticker
+  const ticker = document.getElementById('pickTicker');
+  const last = S.history.slice(-10);
+  ticker.innerHTML = '<span class="ticker-label">PICKS</span>' + (last.length ? last.map(p=>
+    `<span class="tick ${p.type==='me'?'mine':'opp'}"><span class="tick-num">${p.num}</span> ${p.g.name}</span>`
+  ).join('') : '<span class="ticker-empty">Waiting for first pick...</span>');
+  ticker.scrollLeft = ticker.scrollWidth;
+
+  // Roster
+  const rs = document.getElementById('rosterSlots');
+  const picks = myPicks();
+  rs.innerHTML = S.myRoster.map((g,i) => g ?
+    `<div class="r-slot filled"><span class="r-label">R${i+1}</span><span class="r-name">${g.name}</span><span class="r-data">MC ${(g.mcPct*100).toFixed(0)}% ${fmt(g.projScore)}</span><button class="r-remove" onclick="removeRoster(${i})">x</button></div>` :
+    `<div class="r-slot"><span class="r-label">R${i+1}</span><span class="r-name" style="color:var(--text-dim)">Pick #${picks[i]}</span></div>`
+  ).join('');
+
+  // Survival
+  const prob = survival(), pct = (prob*100).toFixed(1);
+  const fill = document.getElementById('survivalFill');
+  fill.style.width = pct+'%';
+  fill.textContent = pct+'%';
+  fill.style.background = prob>=0.85?'linear-gradient(90deg,#0B4A2E,#0a8a5f)':prob>=0.7?'linear-gradient(90deg,#6B4A00,#D4A032)':prob>0?'linear-gradient(90deg,#6B1A1A,#E85454)':'var(--border)';
+  if(!prob) fill.textContent='--';
+
+  // Team stats
+  const tp = teamProj();
+  const r = S.myRoster.filter(g=>g);
+  const amc = r.length ? (r.reduce((s,g)=>s+g.mcPct,0)/r.length*100).toFixed(0) : '--';
+  document.getElementById('teamStats').innerHTML = `
+    <div class="stat-row"><span class="s-label">Proj Best 2</span><span class="s-val">${tp.b}</span></div>
+    <div class="stat-row"><span class="s-label">Range</span><span class="s-val">${tp.rng}</span></div>
+    <div class="stat-row"><span class="s-label">Avg MC</span><span class="s-val ${parseInt(amc)>=75?'good':parseInt(amc)>=60?'warn':'bad'}">${amc}%</span></div>
+    <div class="stat-row"><span class="s-label">My Picks</span><span class="s-val">${myPicks().join(', ')}</span></div>
+  `;
+
+  // Recs
+  const rc = recs(), n = rosterCount();
+  document.getElementById('recTitle').textContent = n===0?'BEST FIRST PICKS':n===1?'ROUND 2 TARGETS':n===2?'CUT INSURANCE (R3)':'ROSTER FULL';
+  document.getElementById('vonaRecs').innerHTML = n>=3 ? '<div style="font-size:12px;color:var(--text-dim)">Roster complete. Good luck!</div>' :
+    rc.map((g,i)=>`<div class="rec"><span class="rec-i">${i+1}</span><span class="rec-n">${g.name}</span><span class="rec-d">${(g.mcPct*100).toFixed(0)}% ${fmt(g.projScore)}</span><span class="rec-r">${g.reason}</span></div>`).join('');
+
+  // Board
+  let gs = [...GOLFERS];
+  if(S.filter==='available') gs=gs.filter(g=>g.status==='available');
+  if(S.search) { const q=S.search.toLowerCase(); gs=gs.filter(g=>g.name.toLowerCase().includes(q)); }
+  gs.forEach(g=>{g.vona=vona(g);});
+  switch(S.sort){case 'mc':gs.sort((a,b)=>b.mcPct-a.mcPct);break;case 'proj':gs.sort((a,b)=>a.projScore-b.projScore);break;case 'adp':gs.sort((a,b)=>a.adp-b.adp);break;default:gs.sort((a,b)=>b.composite-a.composite);}
+
+  const recIds = new Set(rc.map(r=>r.id));
+  const tiers = {};
+  gs.forEach(g=>{if(!tiers[g.tier])tiers[g.tier]=[];tiers[g.tier].push(g);});
+
+  const tn = {1:'ELITE',2:'CONTENDERS',3:'SOLID MID',4:'VALUE MID',5:'LATE ROUND',6:'DART THROWS',7:'LONG SHOTS'};
+  const bd = document.getElementById('golferBoard');
+  let h = '';
+  Object.keys(tiers).sort((a,b)=>a-b).forEach(t=>{
+    const arr = tiers[t];
+    if(!arr.length) return;
+    h += `<div class="tier-bar t${t}">TIER ${t} — ${tn[t]} <span>${arr.length}</span></div>`;
+    arr.forEach(g=>{
+      const cls = g.status==='drafted-me'?'mine':g.status==='drafted-other'?'out':'';
+      const hot = recIds.has(g.id)&&g.status==='available'?'hot':'';
+      const mc = g.mcPct>=0.75?'':g.mcPct>=0.60?'w':'d';
+      h+=`<div class="g ${cls} ${hot}" onclick="tap(${g.id})"><span class="g-rank">${g.rank}</span><div class="g-pip pip${Math.min(g.tier,7)}"></div><div class="g-body"><div class="g-name">${g.name}${g.debut?' *':''}</div><div class="g-meta">${g.notes} · ${g.augustaHistory}</div></div><div class="g-tags"><span class="tag tag-mc ${mc}">${(g.mcPct*100).toFixed(0)}%</span><span class="tag tag-sc">${fmt(g.projScore)}</span></div></div>`;
+    });
+  });
+  bd.innerHTML = h;
+
+  document.getElementById('availableCount').textContent = GOLFERS.filter(g=>g.status==='available').length + ' left';
+}
+
+// === Actions ===
+function tap(id) {
+  const g = GOLFERS.find(x=>x.id===id);
+  if(!g||g.status!=='available') return;
+  S.pending = g;
+  document.getElementById('modalName').textContent = g.name;
+  document.getElementById('modalStats').innerHTML = `MC ${(g.mcPct*100).toFixed(0)}% &middot; Proj ${fmt(g.projScore)}<br>${g.augustaHistory}`;
+  document.getElementById('confirmModal').classList.add('show');
+}
+
+function closeModal() { document.getElementById('confirmModal').classList.remove('show'); S.pending=null; }
+
+function confirmDraft(type) {
+  const g = S.pending; if(!g) return; closeModal();
+  if(type==='me'){const i=S.myRoster.findIndex(s=>s===null);if(i===-1)return;g.status='drafted-me';S.myRoster[i]=g;S.history.push({g,type:'me',num:S.pick});}
+  else{g.status='drafted-other';S.history.push({g,type:'opponent',num:S.pick});}
+  S.pick++; render();
+}
+
+function removeRoster(i) {
+  const g=S.myRoster[i]; if(!g) return;
+  g.status='available'; S.myRoster[i]=null;
+  const hi=S.history.findIndex(p=>p.g.id===g.id); if(hi!==-1)S.history.splice(hi,1);
+  render();
+}
+
+function undoLastPick() {
+  if(!S.history.length) return;
+  const last=S.history.pop(); last.g.status='available';
+  if(last.type==='me'){const i=S.myRoster.findIndex(g=>g&&g.id===last.g.id);if(i!==-1)S.myRoster[i]=null;}
+  S.pick--; render();
+}
+
+function resetDraft() {
+  if(!confirm('Reset entire draft?')) return;
+  GOLFERS.forEach(g=>g.status='available'); S.myRoster=[null,null,null]; S.history=[]; S.pick=1; render();
+}
+
+function setFilter(f) { S.filter=f; document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('active',b.dataset.filter===f)); render(); }
+function setSort(s) { S.sort=s; document.querySelectorAll('[data-sort]').forEach(b=>b.classList.toggle('active',b.dataset.sort===s)); render(); }
+
+function switchTab(t) {
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  if(t==='board'){document.querySelectorAll('.tab-btn')[0].classList.add('active');document.getElementById('boardPanel').classList.add('active');}
+  else{document.querySelectorAll('.tab-btn')[1].classList.add('active');document.getElementById('rosterPanel').classList.add('active');}
+}
+
+document.getElementById('searchBox').addEventListener('input',e=>{S.search=e.target.value;render();});
+document.getElementById('draftSize').addEventListener('input',e=>{const v=parseInt(e.target.value);if(!v||v<2)return;S.size=v;if(S.slot>v)S.slot=1;render();});
+document.getElementById('mySlot').addEventListener('change',e=>{S.slot=parseInt(e.target.value);render();});
+document.addEventListener('keydown',e=>{if(e.key==='z'&&e.ctrlKey){e.preventDefault();undoLastPick();}if(e.key==='Escape')closeModal();});
+
+render();
+</script>
+</body>
+</html>
