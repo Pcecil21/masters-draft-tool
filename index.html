@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Masters Draft Tool 2026</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -65,6 +66,65 @@
     gap: 8px;
     z-index: 50;
   }
+
+  .member-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .member-row:hover { background: var(--bg-hover); }
+  .member-row input[type="checkbox"] { accent-color: var(--champagne); width: 16px; height: 16px; cursor: pointer; }
+  .member-row label { color: var(--text-bright); font-size: 14px; cursor: pointer; flex: 1; }
+  .member-del {
+    background: none;
+    border: none;
+    color: var(--red);
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0.4;
+    padding: 2px 4px;
+  }
+  .member-del:hover { opacity: 1; }
+
+  .order-del-btn {
+    background: none;
+    border: none;
+    color: var(--red);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 2px 6px;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+  }
+  .order-del-btn:hover { opacity: 1; }
+
+  .pool-bar {
+    background: var(--augusta-deep);
+    padding: 6px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .pool-label { color: var(--text-dim); font-family: var(--mono); }
+  .pool-code { color: var(--champagne); font-family: var(--mono); font-weight: 600; letter-spacing: 2px; }
+  .pool-copy {
+    background: var(--border);
+    color: var(--champagne-pale);
+    border: none;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-family: var(--mono);
+    cursor: pointer;
+  }
+  .pool-copy:hover { background: var(--border-light); }
+  .pool-status { color: var(--text-dim); font-size: 10px; margin-left: auto; }
 
   .header::after {
     content: '';
@@ -754,11 +814,17 @@
     <span class="hdr-label">Slot</span>
     <select class="hdr-input" id="mySlot"></select>
     <span class="pick-indicator" id="pickBadge">PICK 1</span>
-    <button class="hdr-btn" onclick="showSetup()">POOL</button>
-    <button class="hdr-btn" onclick="undoLastPick()">UNDO</button>
+    <button class="hdr-btn owner-only" onclick="showSetup()">POOL</button>
+    <button class="hdr-btn owner-only" onclick="undoLastPick()">UNDO</button>
     <a href="tracker.html" class="hdr-btn" style="text-decoration:none;">TRACKER</a>
-    <button class="hdr-btn danger" onclick="resetDraft()">RESET</button>
+    <button class="hdr-btn danger owner-only" onclick="resetDraft()">RESET</button>
   </div>
+</div>
+<div class="pool-bar" id="poolBar" style="display:none;">
+  <span class="pool-label">POOL CODE:</span>
+  <span class="pool-code" id="poolCode"></span>
+  <button class="pool-copy" onclick="copyPoolLink()">COPY LINK</button>
+  <span class="pool-status" id="syncStatus"></span>
 </div>
 
 <div class="ticker" id="pickTicker"></div>
@@ -814,8 +880,12 @@
 <div class="overlay" id="setupOverlay" style="z-index:600;">
   <div class="modal" style="width:380px;">
     <div class="modal-golfer">POOL SETUP</div>
-    <div class="modal-detail" style="text-align:left;margin-bottom:12px;">Enter all player names (one per line). You'll set the draft order after.</div>
-    <textarea id="namesInput" placeholder="Peter&#10;Mike&#10;John&#10;Dave&#10;..." style="width:100%;height:160px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;color:var(--text-bright);font-family:'DM Sans',sans-serif;font-size:14px;resize:none;line-height:1.8;margin-bottom:12px;"></textarea>
+    <div class="modal-detail" style="text-align:left;margin-bottom:12px;">Select who's playing. Add new names below.</div>
+    <div id="memberList" style="max-height:220px;overflow-y:auto;margin-bottom:12px;"></div>
+    <div style="display:flex;gap:6px;margin-bottom:12px;">
+      <input type="text" id="newMemberInput" placeholder="New player name..." onkeydown="if(event.key==='Enter')addMember()" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text-bright);font-family:'DM Sans',sans-serif;font-size:13px;">
+      <button class="m-btn opp" style="padding:8px 14px;white-space:nowrap;" onclick="addMember()">+ ADD</button>
+    </div>
     <button class="m-btn me" onclick="submitNames()">Set Names & Draft Order</button>
     <button class="m-btn cancel" onclick="closeSetup()" style="margin-top:4px;">Skip (use numbers)</button>
   </div>
@@ -825,8 +895,12 @@
 <div class="overlay" id="orderOverlay" style="z-index:600;">
   <div class="modal" style="width:380px;max-height:85vh;overflow-y:auto;">
     <div class="modal-golfer">DRAFT ORDER</div>
-    <div class="modal-detail" style="text-align:left;margin-bottom:8px;">Tap arrows to reorder. Mark yourself.</div>
-    <div id="orderList" style="margin-bottom:16px;"></div>
+    <div class="modal-detail" style="text-align:left;margin-bottom:8px;">Reorder, delete, or add players. Mark yourself.</div>
+    <div id="orderList" style="margin-bottom:12px;"></div>
+    <div style="display:flex;gap:6px;margin-bottom:16px;">
+      <input type="text" id="addNameInput" placeholder="Add player..." style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text-bright);font-family:'DM Sans',sans-serif;font-size:13px;">
+      <button class="m-btn opp" style="padding:8px 14px;white-space:nowrap;" onclick="addName()">+ ADD</button>
+    </div>
     <button class="m-btn me" onclick="confirmOrder()">Lock In Order</button>
   </div>
 </div>
@@ -844,6 +918,101 @@
 </div>
 
 <script>
+// === Supabase Setup ===
+const SUPABASE_URL = 'https://bbjwssziyytnmtwarfbh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiandzc3ppeXl0bm10d2FyZmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNzExNDAsImV4cCI6MjA5MDc0NzE0MH0.N2jv7UyH_tEqgQiZeTRluJxcdp41AzNVGRTDZ3pmnHA';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function getPoolId() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('pool');
+}
+
+function generatePoolId() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let id = '';
+  for (let i = 0; i < 6; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  return id;
+}
+
+function setPoolUrl(poolId) {
+  const url = new URL(window.location);
+  url.searchParams.set('pool', poolId);
+  window.history.replaceState({}, '', url);
+  document.getElementById('poolCode').textContent = poolId;
+  document.getElementById('poolBar').style.display = 'flex';
+}
+
+function copyPoolLink() {
+  navigator.clipboard.writeText(window.location.href).then(() => {
+    const btn = document.querySelector('.pool-copy');
+    btn.textContent = 'COPIED!';
+    setTimeout(() => btn.textContent = 'COPY LINK', 1500);
+  });
+}
+
+let POOL_ID = getPoolId();
+let syncTimer = null;
+
+function isOwner() {
+  if (!POOL_ID) return true; // no pool yet, treat as owner
+  return localStorage.getItem('masters-pool-owner-' + POOL_ID) === 'true';
+}
+
+async function saveToCloud() {
+  if (!POOL_ID) return;
+  // Cloud stores shared state only (not per-user myName/slot/myRoster)
+  const state = {
+    draftOrder: S.draftOrder,
+    size: S.size,
+    pick: S.pick,
+    history: S.history.map(h => ({ gId: h.g.id, type: h.type, num: h.num, drafter: h.drafter })),
+  };
+  try {
+    await sb.from('draft_pools').upsert({ pool_id: POOL_ID, state, updated_at: new Date().toISOString() });
+    document.getElementById('syncStatus').textContent = 'Saved ✓';
+  } catch(e) {
+    document.getElementById('syncStatus').textContent = 'Save failed';
+  }
+}
+
+async function loadFromCloud() {
+  if (!POOL_ID) return false;
+  try {
+    const { data } = await sb.from('draft_pools').select('state').eq('pool_id', POOL_ID).single();
+    if (!data || !data.state) return false;
+    const loaded = data.state;
+    if (loaded.draftOrder && loaded.draftOrder.length) {
+      S.draftOrder = loaded.draftOrder;
+      S.size = loaded.draftOrder.length;
+    }
+    // Restore per-user identity from localStorage
+    const local = JSON.parse(localStorage.getItem('masters-draft-state-2026') || '{}');
+    S.myName = local.myName || '';
+    S.slot = local.slot || 1;
+    if (loaded.history && loaded.history.length) {
+      S.pick = loaded.pick || 1;
+      loaded.history.forEach(h => {
+        const g = GOLFERS.find(x => x.id === h.gId);
+        if (!g) return;
+        // Mark as "me" if drafter matches this user's name
+        if (S.myName && h.drafter === S.myName) {
+          g.status = 'drafted-me';
+          const slot = S.myRoster.findIndex(s => s === null);
+          if (slot >= 0) S.myRoster[slot] = g;
+        } else {
+          g.status = 'drafted-other';
+        }
+        S.history.push({ g, type: S.myName && h.drafter === S.myName ? 'me' : 'opponent', num: h.num, drafter: h.drafter });
+      });
+    }
+    document.getElementById('syncStatus').textContent = 'Synced ✓';
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
 const GOLFERS = [
   { name: "Scottie Scheffler", winOdds: 490, mcOdds: -1300, top5: 106, top10: -192, top20: -450, tier: 1, augustaHistory: "2W (2022, 2024), T10 2023, T2 2025", notes: "Best player in world, 2x champ", debut: false, adp: 1 },
   { name: "Jon Rahm", winOdds: 910, mcOdds: -800, top5: 175, top10: -120, top20: -280, tier: 1, augustaHistory: "T5 2023, T7 2022, MC 2025", notes: "Elite SG:OTT, LIV form unclear", debut: false, adp: 2 },
@@ -960,20 +1129,62 @@ GOLFERS.forEach((g, i) => g.rank = i + 1);
 // === State ===
 let S = { myRoster: [null,null,null], history: [], pick: 1, size: 10, slot: 1, filter: 'available', sort: 'composite', search: '', pending: null, draftOrder: [], myName: '' };
 
-// Load saved state
-try {
-  const saved = localStorage.getItem('masters-draft-state-2026');
-  if (saved) {
-    const loaded = JSON.parse(saved);
-    // Restore draft order and name but not full draft state (start fresh each session)
-    if (loaded.draftOrder && loaded.draftOrder.length) {
-      S.draftOrder = loaded.draftOrder;
-      S.myName = loaded.myName || '';
-      S.size = loaded.draftOrder.length;
-      S.slot = loaded.slot || 1;
+// Load saved state — cloud first, then localStorage fallback
+async function initState() {
+  if (POOL_ID) {
+    setPoolUrl(POOL_ID);
+    const loaded = await loadFromCloud();
+    if (loaded) {
+      render();
+      if (!S.draftOrder.length) setTimeout(showSetup, 300);
+      return;
     }
   }
-} catch(e) {}
+  // Fallback to localStorage
+  try {
+    const saved = localStorage.getItem('masters-draft-state-2026');
+    if (saved) {
+      const loaded = JSON.parse(saved);
+      if (loaded.draftOrder && loaded.draftOrder.length) {
+        S.draftOrder = loaded.draftOrder;
+        S.myName = loaded.myName || '';
+        S.size = loaded.draftOrder.length;
+        S.slot = loaded.slot || 1;
+      }
+      if (loaded.history && loaded.history.length) {
+        S.pick = loaded.pick || 1;
+        loaded.history.forEach(h => {
+          const g = GOLFERS.find(x => x.id === h.gId);
+          if (!g) return;
+          if (h.type === 'me') {
+            g.status = 'drafted-me';
+            const slot = S.myRoster.findIndex(s => s === null);
+            if (slot >= 0) S.myRoster[slot] = g;
+          } else {
+            g.status = 'drafted-other';
+          }
+          S.history.push({ g, type: h.type, num: h.num, drafter: h.drafter });
+        });
+      }
+    }
+  } catch(e) {}
+  render();
+  if (!isOwner()) {
+    document.querySelectorAll('.owner-only').forEach(el => el.style.display = 'none');
+    // Poll for updates every 10 seconds
+    setInterval(async () => {
+      GOLFERS.forEach(g => { g.status = 'available'; });
+      S.myRoster = [null, null, null];
+      S.history = [];
+      S.pick = 1;
+      await loadFromCloud();
+      render();
+    }, 10000);
+  } else if (!S.draftOrder.length) {
+    setTimeout(showSetup, 300);
+  }
+}
+initState();
 
 function saveDraftMeta() {
   localStorage.setItem('masters-draft-state-2026', JSON.stringify({
@@ -981,7 +1192,11 @@ function saveDraftMeta() {
     myName: S.myName,
     slot: S.slot,
     size: S.size,
+    pick: S.pick,
+    history: S.history.map(h => ({ gId: h.g.id, type: h.type, num: h.num, drafter: h.drafter })),
+    myRoster: S.myRoster.map(g => g ? g.id : null),
   }));
+  saveToCloud();
 }
 
 // === Core ===
@@ -1039,12 +1254,66 @@ function recs() {
   }).sort((a,b)=>b.recScore-a.recScore).slice(0,5);
 }
 
+// === Saved Members ===
+function getSavedMembers() {
+  try { return JSON.parse(localStorage.getItem('masters-pool-members') || '[]'); } catch(e) { return []; }
+}
+
+function saveMembersList(members) {
+  localStorage.setItem('masters-pool-members', JSON.stringify(members));
+}
+
+function renderMemberList() {
+  let members = getSavedMembers();
+  // Merge in any names from current draftOrder that aren't saved yet
+  S.draftOrder.forEach(n => { if (!members.includes(n)) members.push(n); });
+  if (members.length !== getSavedMembers().length) saveMembersList(members);
+
+  const container = document.getElementById('memberList');
+  container.innerHTML = members.map((name, i) => {
+    const checked = S.draftOrder.includes(name) ? 'checked' : '';
+    return `<div class="member-row">
+      <input type="checkbox" id="mem${i}" ${checked} onchange="toggleMember('${name.replace(/'/g, "\\'")}', this.checked)">
+      <label for="mem${i}">${name}</label>
+      <button class="member-del" onclick="deleteMember(${i})" title="Remove permanently">&#10005;</button>
+    </div>`;
+  }).join('');
+  if (!members.length) container.innerHTML = '<div style="color:var(--text-dim);font-size:13px;padding:12px;">No saved members. Add names below.</div>';
+}
+
+function toggleMember(name, on) {
+  if (on && !S.draftOrder.includes(name)) S.draftOrder.push(name);
+  if (!on) S.draftOrder = S.draftOrder.filter(n => n !== name);
+}
+
+function addMember() {
+  const input = document.getElementById('newMemberInput');
+  const name = input.value.trim();
+  if (!name) return;
+  const members = getSavedMembers();
+  if (!members.includes(name)) { members.push(name); saveMembersList(members); }
+  if (!S.draftOrder.includes(name)) S.draftOrder.push(name);
+  input.value = '';
+  renderMemberList();
+}
+
+function deleteMember(i) {
+  const members = getSavedMembers();
+  const name = members[i];
+  members.splice(i, 1);
+  saveMembersList(members);
+  S.draftOrder = S.draftOrder.filter(n => n !== name);
+  if (name === S.myName) S.myName = '';
+  renderMemberList();
+}
+
 // === Setup & Draft Order ===
 function showSetup() {
-  // Pre-fill with existing names
   if (S.draftOrder.length) {
-    document.getElementById('namesInput').value = S.draftOrder.join('\n');
+    showOrderOverlay();
+    return;
   }
+  renderMemberList();
   document.getElementById('setupOverlay').classList.add('show');
 }
 
@@ -1053,13 +1322,14 @@ function closeSetup() {
 }
 
 function submitNames() {
-  const raw = document.getElementById('namesInput').value;
-  const names = raw.split('\n').map(n => n.trim()).filter(n => n.length > 0);
-  if (names.length < 2) { alert('Enter at least 2 names'); return; }
+  if (S.draftOrder.length < 2) { alert('Select at least 2 players'); return; }
+  // Save any new names to master list
+  const members = getSavedMembers();
+  S.draftOrder.forEach(n => { if (!members.includes(n)) members.push(n); });
+  saveMembersList(members);
 
-  S.draftOrder = names;
-  S.size = names.length;
-  document.getElementById('draftSize').value = names.length;
+  S.size = S.draftOrder.length;
+  document.getElementById('draftSize').value = S.draftOrder.length;
   closeSetup();
   showOrderOverlay();
 }
@@ -1081,8 +1351,32 @@ function renderOrderList() {
         <button onclick="moveUp(${i})">&#9650;</button>
         <button onclick="moveDown(${i})">&#9660;</button>
       </div>
+      <button class="order-del-btn" onclick="removeName(${i})">&#10005;</button>
     </div>`;
   }).join('');
+}
+
+function removeName(i) {
+  const name = S.draftOrder[i];
+  if (S.draftOrder.length <= 2) { alert('Need at least 2 players'); return; }
+  if (name === S.myName) S.myName = '';
+  S.draftOrder.splice(i, 1);
+  S.size = S.draftOrder.length;
+  if (S.myName) {
+    const myIdx = S.draftOrder.indexOf(S.myName);
+    if (myIdx >= 0) S.slot = myIdx + 1;
+  }
+  renderOrderList();
+}
+
+function addName() {
+  const input = document.getElementById('addNameInput');
+  const name = input.value.trim();
+  if (!name) return;
+  S.draftOrder.push(name);
+  S.size = S.draftOrder.length;
+  input.value = '';
+  renderOrderList();
 }
 
 function moveUp(i) {
@@ -1116,6 +1410,12 @@ function setMe(i) {
 function confirmOrder() {
   document.getElementById('orderOverlay').classList.remove('show');
   document.getElementById('draftSize').value = S.size;
+  // Create a pool if none exists yet
+  if (!POOL_ID) {
+    POOL_ID = generatePoolId();
+    setPoolUrl(POOL_ID);
+    localStorage.setItem('masters-pool-owner-' + POOL_ID, 'true');
+  }
   saveDraftMeta();
 
   // Also push names to tracker localStorage
@@ -1292,6 +1592,7 @@ function render() {
 
 // === Actions ===
 function tap(id) {
+  if (!isOwner()) return;
   const g = GOLFERS.find(x=>x.id===id);
   if(!g||g.status!=='available') return;
   S.pending = g;
@@ -1320,26 +1621,26 @@ function confirmDraft(type) {
       localStorage.setItem('masters-pool-2026', JSON.stringify(td));
     }
   } catch(e) {}
-  S.pick++; render();
+  S.pick++; saveDraftMeta(); render();
 }
 
 function removeRoster(i) {
   const g=S.myRoster[i]; if(!g) return;
   g.status='available'; S.myRoster[i]=null;
   const hi=S.history.findIndex(p=>p.g.id===g.id); if(hi!==-1)S.history.splice(hi,1);
-  render();
+  saveDraftMeta(); render();
 }
 
 function undoLastPick() {
   if(!S.history.length) return;
   const last=S.history.pop(); last.g.status='available';
   if(last.type==='me'){const i=S.myRoster.findIndex(g=>g&&g.id===last.g.id);if(i!==-1)S.myRoster[i]=null;}
-  S.pick--; render();
+  S.pick--; saveDraftMeta(); render();
 }
 
 function resetDraft() {
   if(!confirm('Reset entire draft?')) return;
-  GOLFERS.forEach(g=>g.status='available'); S.myRoster=[null,null,null]; S.history=[]; S.pick=1; render();
+  GOLFERS.forEach(g=>g.status='available'); S.myRoster=[null,null,null]; S.history=[]; S.pick=1; saveDraftMeta(); render();
 }
 
 function setFilter(f) { S.filter=f; document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('active',b.dataset.filter===f)); render(); }
@@ -1355,14 +1656,9 @@ function switchTab(t) {
 document.getElementById('searchBox').addEventListener('input',e=>{S.search=e.target.value;render();});
 document.getElementById('draftSize').addEventListener('input',e=>{const v=parseInt(e.target.value);if(!v||v<2)return;S.size=v;if(S.slot>v)S.slot=1;render();});
 document.getElementById('mySlot').addEventListener('change',e=>{S.slot=parseInt(e.target.value);render();});
-document.addEventListener('keydown',e=>{if(e.key==='z'&&e.ctrlKey){e.preventDefault();undoLastPick();}if(e.key==='Escape')closeModal();});
+document.addEventListener('keydown',e=>{if(e.key==='z'&&e.ctrlKey&&isOwner()){e.preventDefault();undoLastPick();}if(e.key==='Escape')closeModal();});
 
-render();
-
-// Show setup on first load if no names configured
-if (!S.draftOrder.length) {
-  setTimeout(showSetup, 300);
-}
+// initState() handles render() and setup prompt
 </script>
 </body>
 </html>
