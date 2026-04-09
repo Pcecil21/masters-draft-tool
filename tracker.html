@@ -1715,7 +1715,7 @@ function renderSweatMeter() {
 
   container.style.display = 'block';
   container.innerHTML = `<div class="sweat-card">
-    <div class="sweat-title">SWEAT METER</div>
+    <div class="sweat-title">SWEAT METER <span style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:400;color:var(--text-dim);letter-spacing:0;">How close your guys are to missing the cut — based on score, position & odds</span></div>
     ${rows.map(r => `<div class="sweat-row">
       <span class="sweat-name">${esc(r.name)}</span>
       <div class="sweat-bar-track">
