@@ -4268,7 +4268,9 @@
 
               // Don't count score if golfer hasn't started (no holes played in any round)
               const hasStarted =
-                thru !== null || rounds.some((rd) => rd.holesPlayed > 0);
+                score !== null ||
+                thru !== null ||
+                rounds.some((rd) => rd.holesPlayed > 0);
 
               if (score !== null && hasStarted) {
                 pool.scores[poolName] = {
