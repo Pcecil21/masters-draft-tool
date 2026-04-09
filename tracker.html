@@ -2795,47 +2795,78 @@ function pickRoast(category, vars) {
   return text;
 }
 
+function golferHasPlayed(g) {
+  // A golfer has actually played if they have thru > 0 or completed rounds
+  if (g.thru && g.thru !== 0) return true;
+  if (g.rounds && g.rounds.some(r => r.holesPlayed > 0)) return true;
+  // If status is cut/wd they definitely played
+  if (g.status === 'cut' || g.status === 'wd') return true;
+  // If score is non-zero and non-null, they've played
+  if (g.score !== null && g.score !== 0) return true;
+  return false;
+}
+
 function renderRoastRecap(standings) {
   const container = document.getElementById('roastRecap');
-  const namedWithScores = standings.filter(t => t.name && t.teamScore !== null);
-  if (namedWithScores.length < 2) { container.style.display = 'none'; return; }
 
-  const worst = namedWithScores[namedWithScores.length - 1];
-  const best = namedWithScores[0];
-
-  // Find individual worst and best golfers
-  let worstGolfer = { name: '', score: -999, owner: '' };
-  let bestGolfer = { name: '', score: 999, owner: '' };
-  namedWithScores.forEach(t => {
+  // Only include golfers who have ACTUALLY played holes
+  const playedGolfers = [];
+  const namedTeams = standings.filter(t => t.name);
+  namedTeams.forEach(t => {
     t.golfers.forEach(g => {
-      if (g.score !== null && g.status !== 'cut') {
-        if (g.score > worstGolfer.score) worstGolfer = { name: g.name, score: g.score, owner: t.name };
-        if (g.score < bestGolfer.score) bestGolfer = { name: g.name, score: g.score, owner: t.name };
+      if (golferHasPlayed(g)) {
+        playedGolfers.push({ ...g, owner: t.name });
       }
     });
   });
 
+  // Need meaningful data — at least 5 golfers with real scores
+  if (playedGolfers.length < 5) {
+    container.style.display = 'none';
+    return;
+  }
+
+  // Teams with real scores (at least 1 golfer who has played)
+  const teamsWithPlay = namedTeams.filter(t =>
+    t.golfers.some(g => golferHasPlayed(g)) && t.teamScore !== null
+  );
+  if (teamsWithPlay.length < 2) { container.style.display = 'none'; return; }
+
+  const worst = teamsWithPlay[teamsWithPlay.length - 1];
+  const best = teamsWithPlay[0];
+
+  // Find individual worst and best among golfers who have ACTUALLY played
+  const activePlayedGolfers = playedGolfers.filter(g => g.status !== 'cut' && g.status !== 'wd' && g.score !== null);
+  if (activePlayedGolfers.length < 2) { container.style.display = 'none'; return; }
+
+  let worstGolfer = activePlayedGolfers[0];
+  let bestGolfer = activePlayedGolfers[0];
+  activePlayedGolfers.forEach(g => {
+    if (g.score > worstGolfer.score) worstGolfer = g;
+    if (g.score < bestGolfer.score) bestGolfer = g;
+  });
+
+  // Don't roast if best and worst are the same score — not enough differentiation
+  if (bestGolfer.score === worstGolfer.score) { container.style.display = 'none'; return; }
+
   let recap = '';
 
   // Crown the MVP
-  recap += `<span class="roast-crown">${pickRoast('best', { name: best.name, golfer: bestGolfer.name, score: fmtScore(bestGolfer.score) })}</span>`;
+  recap += `<span class="roast-crown">${pickRoast('best', { name: bestGolfer.owner, golfer: bestGolfer.name, score: fmtScore(bestGolfer.score) })}</span>`;
 
   // Roast the worst
-  recap += `<br><br><span class="roast-burn">${pickRoast('worst', { name: worst.name, golfer: worstGolfer.name, score: fmtScore(worstGolfer.score) })}</span>`;
+  recap += `<br><br><span class="roast-burn">${pickRoast('worst', { name: worstGolfer.owner, golfer: worstGolfer.name, score: fmtScore(worstGolfer.score) })}</span>`;
 
   // Last place special
-  recap += `<br><br>${pickRoast('lastPlace', { name: worst.name })}`;
+  if (worst.name !== worstGolfer.owner) {
+    recap += `<br><br>${pickRoast('lastPlace', { name: worst.name })}`;
+  }
 
   // Cut victims
-  const cutVictims = [];
-  namedWithScores.forEach(t => {
-    t.golfers.forEach(g => {
-      if (g.status === 'cut') cutVictims.push({ golfer: g.name, owner: t.name });
-    });
-  });
+  const cutVictims = playedGolfers.filter(g => g.status === 'cut');
   if (cutVictims.length) {
     const cv = cutVictims[0];
-    recap += `<br><br>${pickRoast('cutVictim', { name: cv.owner, golfer: cv.golfer })}`;
+    recap += `<br><br>${pickRoast('cutVictim', { name: cv.owner, golfer: cv.name })}`;
   }
 
   // Copy-friendly version
