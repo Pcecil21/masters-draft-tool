@@ -1103,6 +1103,91 @@
     opacity: 1;
   }
 
+  /* Tournament Leaderboard */
+  .tourn-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 13px;
+    transition: background 0.15s;
+  }
+  .tourn-row:hover { background: rgba(255,255,255,0.03); }
+  .tourn-row.in-pool { background: rgba(11,74,46,0.12); border-left: 3px solid var(--augusta); }
+  .tourn-row.cut-row { opacity: 0.4; }
+  .tourn-row.cut-line-row {
+    border-top: 2px dashed var(--red);
+    margin-top: 4px;
+    padding-top: 10px;
+  }
+  .tourn-pos {
+    width: 36px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    color: var(--champagne);
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .tourn-name {
+    flex: 1;
+    font-weight: 600;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tourn-owner {
+    font-size: 10px;
+    color: var(--augusta);
+    font-weight: 400;
+    margin-left: 6px;
+  }
+  .tourn-rounds {
+    display: flex;
+    gap: 4px;
+    margin: 0 10px;
+  }
+  .tourn-rd {
+    font-family: var(--mono);
+    font-size: 11px;
+    width: 32px;
+    text-align: center;
+    color: var(--text-dim);
+  }
+  .tourn-rd.under { color: #4ADE80; }
+  .tourn-rd.over { color: var(--red); }
+  .tourn-thru {
+    font-family: var(--mono);
+    font-size: 11px;
+    width: 40px;
+    text-align: center;
+    color: var(--text-dim);
+  }
+  .tourn-total {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 14px;
+    width: 44px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .tourn-total.under { color: #4ADE80; }
+  .tourn-total.even { color: var(--champagne); }
+  .tourn-total.over { color: var(--red); }
+  .tourn-total.cut-score { color: var(--text-dim); }
+  .tourn-header {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .tourn-header .tourn-pos { font-family: var(--mono); font-size: 10px; }
+
   /* Sweat Meter */
   .sweat-card {
     background: var(--bg-card);
@@ -1233,6 +1318,7 @@
 <div class="mode-bar">
   <!-- <button class="mode-pill active" onclick="switchMode('setup')">SETUP</button> -->
   <button class="mode-pill active" onclick="switchMode('live')"><span class="live-dot"></span>LEADERBOARD</button>
+  <button class="mode-pill" onclick="switchMode('tournament')">TOURNAMENT</button>
   <button class="mode-pill" onclick="switchMode('scorecard')">DRAFT GRADES</button>
   <button class="mode-pill cheese-pill" onclick="switchMode('cheese')">SIDE CHEESE</button>
 </div>
@@ -1303,6 +1389,16 @@
   <div class="section-head">POOL STANDINGS</div>
   <div class="pool-board" id="poolBoard"></div>
   <div class="last-updated" id="lastUpdated"></div>
+</div>
+
+<!-- TOURNAMENT LEADERBOARD VIEW -->
+<div class="view" id="tournamentView">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <div class="section-head" style="margin:0;">MASTERS LEADERBOARD</div>
+    <button class="hdr-btn primary" id="tournFetchBtn" onclick="fetchTournament()" style="font-size:11px;padding:6px 12px;">REFRESH</button>
+  </div>
+  <div id="tournStatus" style="font-size:11px;color:var(--text-dim);font-family:var(--mono);margin-bottom:8px;"></div>
+  <div id="tournBoard"></div>
 </div>
 
 <!-- DRAFT SCORECARD VIEW -->
@@ -1969,6 +2065,143 @@ function toggleAutoRefresh() {
   }
 }
 
+// ===== Tournament Leaderboard =====
+let tournamentData = null;
+
+async function fetchTournament() {
+  const btn = document.getElementById('tournFetchBtn');
+  const status = document.getElementById('tournStatus');
+  btn.disabled = true;
+  btn.textContent = 'LOADING...';
+
+  try {
+    const resp = await fetch(ESPN_URL);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const event = data.events?.[0];
+    if (!event) throw new Error('No event data');
+
+    const eventStatus = event.status?.type?.detail || '';
+    const competitors = event.competitions?.[0]?.competitors || [];
+
+    // Build pool golfer lookup: golferName -> ownerName
+    const poolGolferOwners = {};
+    pool.teams.forEach(t => {
+      if (!t.name) return;
+      t.golfers.forEach(g => { if (g) poolGolferOwners[g] = t.name; });
+    });
+
+    tournamentData = competitors.map(c => {
+      const name = c.athlete?.displayName || c.athlete?.fullName || '';
+      const scoreStr = typeof c.score === 'string' ? c.score : c.score?.displayValue || '';
+      const statusType = c.status?.type?.name || '';
+      const position = c.order || 999;
+
+      // Parse overall score
+      let score = null;
+      if (scoreStr === 'E' || scoreStr === '0') score = 0;
+      else if (typeof scoreStr === 'string' && scoreStr.match(/^[+-]?\d+$/)) score = parseInt(scoreStr);
+
+      const isCut = statusType === 'STATUS_CUT' || scoreStr === 'CUT' || scoreStr === 'MC';
+      const isWD = statusType === 'STATUS_WITHDRAWN' || scoreStr === 'WD';
+
+      // Round scores and thru
+      const rounds = [];
+      let thru = null;
+      if (c.linescores) {
+        c.linescores.forEach((rd, ri) => {
+          const holesPlayed = rd.linescores ? rd.linescores.length : 0;
+          const roundScore = rd.displayValue || null;
+          rounds.push({ round: ri + 1, score: roundScore, holesPlayed });
+          if (holesPlayed > 0 && holesPlayed < 18) thru = holesPlayed;
+          else if (holesPlayed === 18 && ri === c.linescores.length - 1) thru = 'F';
+        });
+      }
+
+      // Check if in pool
+      const poolName = findPoolGolferName(name);
+      const owner = poolName ? poolGolferOwners[poolName] || null : null;
+
+      return { name, score, scoreStr, position, isCut, isWD, rounds, thru, owner, poolName };
+    }).sort((a, b) => a.position - b.position);
+
+    status.textContent = `${eventStatus} — ${competitors.length} players`;
+    status.style.color = '#4ADE80';
+    renderTournament();
+  } catch (err) {
+    status.textContent = `Error: ${err.message}`;
+    status.style.color = 'var(--red)';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'REFRESH';
+  }
+}
+
+function renderTournament() {
+  const board = document.getElementById('tournBoard');
+  if (!tournamentData) {
+    board.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:40px 0;font-size:13px;">Hit REFRESH to load the full Masters leaderboard</div>';
+    return;
+  }
+
+  // Determine cut line position (first cut player)
+  const cutIdx = tournamentData.findIndex(p => p.isCut);
+
+  let html = `<div class="tourn-header">
+    <span class="tourn-pos">POS</span>
+    <span class="tourn-name">PLAYER</span>
+    <span class="tourn-rounds">${tournamentData[0]?.rounds.map((_, i) => `<span class="tourn-rd">R${i+1}</span>`).join('') || ''}</span>
+    <span class="tourn-thru">THRU</span>
+    <span class="tourn-total">TOT</span>
+  </div>`;
+
+  let lastPos = 0;
+  let tiedCount = 0;
+
+  tournamentData.forEach((p, idx) => {
+    const isCutLine = cutIdx > 0 && idx === cutIdx;
+    const totalClass = p.isCut || p.isWD ? 'cut-score' : (p.score === null ? '' : p.score < 0 ? 'under' : p.score === 0 ? 'even' : 'over');
+    const totalText = p.isCut ? 'CUT' : p.isWD ? 'WD' : (p.scoreStr || '--');
+
+    // Calculate displayed position with ties
+    let posText;
+    if (p.isCut || p.isWD) {
+      posText = '';
+    } else if (idx === 0 || p.score !== tournamentData[idx - 1]?.score) {
+      lastPos = idx + 1;
+      posText = String(lastPos);
+    } else {
+      posText = 'T' + lastPos;
+      // Also mark previous if it wasn't already T
+    }
+    // Check if tied with next
+    if (!p.isCut && !p.isWD && idx < tournamentData.length - 1 && p.score === tournamentData[idx + 1]?.score) {
+      posText = 'T' + lastPos;
+    }
+
+    const thruText = p.thru === 'F' ? 'F' : p.thru ? String(p.thru) : '--';
+
+    const roundsHtml = p.rounds.map(rd => {
+      if (!rd.score && rd.holesPlayed === 0) return '<span class="tourn-rd">-</span>';
+      const val = rd.score || '-';
+      const cls = String(val).startsWith('-') ? 'under' : val === 'E' ? '' : String(val).startsWith('+') ? 'over' : '';
+      return `<span class="tourn-rd ${cls}">${val}</span>`;
+    }).join('');
+
+    const ownerTag = p.owner ? `<span class="tourn-owner">(${esc(p.owner)})</span>` : '';
+
+    html += `<div class="tourn-row ${p.owner ? 'in-pool' : ''} ${p.isCut || p.isWD ? 'cut-row' : ''} ${isCutLine ? 'cut-line-row' : ''}">
+      <span class="tourn-pos">${posText}</span>
+      <span class="tourn-name">${esc(p.name)}${ownerTag}</span>
+      <span class="tourn-rounds">${roundsHtml}</span>
+      <span class="tourn-thru">${thruText}</span>
+      <span class="tourn-total ${totalClass}">${totalText}</span>
+    </div>`;
+  });
+
+  board.innerHTML = html;
+}
+
 // ===== Trades =====
 let tradeSelections = { a: [], b: [] };
 
@@ -2065,12 +2298,16 @@ function switchMode(mode) {
   if (mode === 'setup') {
     document.getElementById('setupView').classList.add('active');
     renderSetup();
-  } else if (mode === 'scorecard') {
+  } else if (mode === 'tournament') {
     pills[1].classList.add('active');
+    document.getElementById('tournamentView').classList.add('active');
+    renderTournament();
+  } else if (mode === 'scorecard') {
+    pills[2].classList.add('active');
     document.getElementById('scorecardView').classList.add('active');
     renderScorecard();
   } else if (mode === 'cheese') {
-    pills[2].classList.add('active');
+    pills[3].classList.add('active');
     document.getElementById('cheeseView').classList.add('active');
     renderBetForm();
     renderTemplates();
