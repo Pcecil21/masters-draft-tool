@@ -420,6 +420,83 @@
 
   .pool-score.negative { color: #4ADE80; }
 
+  .pool-row { cursor: pointer; }
+  .pool-row:hover { border-color: var(--champagne-dim, rgba(201,168,76,0.4)); }
+
+  .pool-detail {
+    display: none;
+    padding: 0 14px 14px;
+    border-top: 1px solid var(--border);
+  }
+  .pool-row.expanded .pool-detail { display: block; }
+
+  .golfer-detail {
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-top: 8px;
+  }
+  .golfer-detail.cut-detail { opacity: 0.5; }
+
+  .gd-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .gd-name {
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .gd-score-badge {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 13px;
+    padding: 2px 10px;
+    border-radius: 4px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+  }
+  .gd-score-badge.under { color: #4ADE80; border-color: rgba(74,222,128,0.3); }
+  .gd-score-badge.over { color: var(--red); border-color: rgba(232,84,84,0.3); }
+  .gd-score-badge.even { color: var(--champagne); }
+  .gd-score-badge.cut-badge { color: var(--red); border-color: var(--red); }
+
+  .gd-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 6px;
+    font-size: 11px;
+    font-family: var(--mono);
+  }
+  .gd-stat {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 8px;
+    background: rgba(0,0,0,0.15);
+    border-radius: 4px;
+  }
+  .gd-stat-label { color: var(--text-dim); }
+  .gd-stat-val { color: var(--text); font-weight: 600; }
+
+  .gd-history {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  .gd-history strong { color: var(--champagne); font-weight: 600; }
+
+  .gd-tier {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(201,168,76,0.15);
+    color: var(--champagne);
+    margin-left: 8px;
+  }
+
   .status-tag {
     font-family: var(--mono);
     font-size: 9px;
@@ -1303,6 +1380,51 @@ function renderScoreInputs() {
   }).join('');
 }
 
+function toggleTeamDetail(el) {
+  el.classList.toggle('expanded');
+}
+
+function fmtOdds(odds) {
+  if (odds >= 0) return '+' + odds;
+  return '' + odds;
+}
+
+function renderGolferDetail(g) {
+  if (!g.name || g.name === '(empty)') return '';
+  const info = GOLFERS.find(x => x.name === g.name);
+  const isCut = g.status === 'cut';
+  const scoreText = isCut ? 'CUT' : (g.score !== null ? fmtScore(g.score) : '--');
+  const scoreClass = isCut ? 'cut-badge' : (g.score === null ? '' : g.score < 0 ? 'under' : g.score === 0 ? 'even' : 'over');
+  const tierNames = ['', 'Elite', 'Contender', 'Solid', 'Mid-Tier', 'Sleeper', 'Longshot', 'Deep Cut'];
+
+  let statsHtml = '';
+  let historyHtml = '';
+  let tierHtml = '';
+
+  if (info) {
+    tierHtml = `<span class="gd-tier">T${info.tier} — ${tierNames[info.tier] || ''}</span>`;
+    statsHtml = `<div class="gd-stats">
+      <div class="gd-stat"><span class="gd-stat-label">Win</span><span class="gd-stat-val">${fmtOdds(info.winOdds)}</span></div>
+      <div class="gd-stat"><span class="gd-stat-label">Make Cut</span><span class="gd-stat-val">${fmtOdds(info.mcOdds)}</span></div>
+      <div class="gd-stat"><span class="gd-stat-label">Top 5</span><span class="gd-stat-val">${fmtOdds(info.top5)}</span></div>
+      <div class="gd-stat"><span class="gd-stat-label">Top 10</span><span class="gd-stat-val">${fmtOdds(info.top10)}</span></div>
+      <div class="gd-stat"><span class="gd-stat-label">Top 20</span><span class="gd-stat-val">${fmtOdds(info.top20)}</span></div>
+      <div class="gd-stat"><span class="gd-stat-label">ADP</span><span class="gd-stat-val">#${info.adp}</span></div>
+    </div>`;
+    historyHtml = `<div class="gd-history"><strong>Augusta:</strong> ${esc(info.augustaHistory)}</div>`;
+    if (info.notes) historyHtml += `<div class="gd-history"><strong>Notes:</strong> ${esc(info.notes)}</div>`;
+  }
+
+  return `<div class="golfer-detail ${isCut ? 'cut-detail' : ''}">
+    <div class="gd-header">
+      <span><span class="gd-name">${esc(g.name)}</span>${tierHtml}</span>
+      <span class="gd-score-badge ${scoreClass}">${scoreText}</span>
+    </div>
+    ${statsHtml}
+    ${historyHtml}
+  </div>`;
+}
+
 function renderLive() {
   renderScoreInputs();
 
@@ -1358,7 +1480,7 @@ function renderLive() {
     const pos = i + 1;
     const eliminated = !team.alive && team.cutCount >= 2;
 
-    return `<div class="pool-row ${team.isMe ? 'me' : ''} ${eliminated ? 'eliminated' : ''}">
+    return `<div class="pool-row ${team.isMe ? 'me' : ''} ${eliminated ? 'eliminated' : ''}" onclick="toggleTeamDetail(this)">
       <div class="pool-pos ${pos === 1 ? 'first' : ''}">${pos}</div>
       <div class="pool-body">
         <div class="pool-name">${esc(team.name)} ${team.isMe ? '<span style="color:var(--champagne);font-size:11px;">(YOU)</span>' : ''}</div>
@@ -1370,6 +1492,9 @@ function renderLive() {
             const scoreText = isCut ? 'CUT' : (g.score !== null ? fmtScore(g.score) : '--');
             return `<span class="pool-g ${cls}">${g.name} <span class="g-score">${scoreText}</span></span>`;
           }).join('')}
+        </div>
+        <div class="pool-detail">
+          ${team.golfers.map(g => renderGolferDetail(g)).join('')}
         </div>
       </div>
       <div class="pool-score ${team.teamScore !== null && team.teamScore < 0 ? 'negative' : ''}">
