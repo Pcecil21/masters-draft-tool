@@ -1653,10 +1653,10 @@ function setClaimedTeam(name) {
 
 function showClaimOverlay() {
   const list = document.getElementById('claimList');
-  list.innerHTML = pool.teams.map(t => {
+  list.innerHTML = pool.teams.filter(t => t.name).map(t => {
     const golfers = t.golfers.filter(g => g).join(', ') || 'No golfers yet';
     return `<button class="claim-name" onclick="claimTeam('${esc(t.name).replace(/'/g, "\\'")}')">
-      ${esc(t.name) || '(unnamed)'}
+      ${esc(t.name)}
       <div class="claim-golfers">${esc(golfers)}</div>
     </button>`;
   }).join('');
@@ -2549,16 +2549,22 @@ async function init() {
 
   // Restore claimed identity
   const claimed = getClaimedTeam();
+  const hasNamedTeams = pool.teams.some(t => t.name);
   if (claimed) {
     pool.meIndex = pool.teams.findIndex(t => t.name === claimed);
-    updateIdentityBar();
+    if (pool.meIndex >= 0) {
+      updateIdentityBar();
+    } else {
+      // Stale claim — team no longer exists
+      localStorage.removeItem(POOL_ID ? `masters-claimed-${POOL_ID}` : 'masters-claimed');
+    }
   }
 
   updateBetBadge();
   switchMode('live');
 
-  // Show claim overlay if no team claimed yet and we have teams
-  if (!claimed && pool.teams.length > 0 && pool.teams[0].name) {
+  // Show claim overlay if no valid claim and we have named teams
+  if ((!claimed || pool.meIndex < 0) && hasNamedTeams) {
     setTimeout(showClaimOverlay, 400);
   }
   } catch(e) { console.error('Init error:', e); }
