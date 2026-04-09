@@ -1103,6 +1103,97 @@
     opacity: 1;
   }
 
+  /* Sweat Meter */
+  .sweat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+  }
+  .sweat-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 1px;
+    color: var(--champagne);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sweat-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .sweat-row:last-child { margin-bottom: 0; }
+  .sweat-name {
+    font-size: 13px;
+    font-weight: 600;
+    width: 130px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sweat-bar-track {
+    flex: 1;
+    height: 18px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 9px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid var(--border);
+  }
+  .sweat-bar-fill {
+    height: 100%;
+    border-radius: 9px;
+    transition: width 0.6s ease;
+    position: relative;
+  }
+  .sweat-bar-fill.chill {
+    background: linear-gradient(90deg, #4ADE80, #22c55e);
+  }
+  .sweat-bar-fill.warm {
+    background: linear-gradient(90deg, #22c55e, #eab308);
+  }
+  .sweat-bar-fill.sweating {
+    background: linear-gradient(90deg, #eab308, #f97316);
+  }
+  .sweat-bar-fill.soaked {
+    background: linear-gradient(90deg, #f97316, #ef4444);
+  }
+  .sweat-bar-fill.cooked {
+    background: linear-gradient(90deg, #ef4444, #991b1b);
+  }
+  .sweat-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    width: 70px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .sweat-label.chill { color: #4ADE80; }
+  .sweat-label.warm { color: #eab308; }
+  .sweat-label.sweating { color: #f97316; }
+  .sweat-label.soaked { color: #ef4444; }
+  .sweat-label.cooked { color: #991b1b; }
+  .sweat-label.dead { color: var(--text-dim); }
+
+  .sweat-verdict {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: center;
+    line-height: 1.4;
+  }
+  .sweat-verdict strong { color: var(--champagne); }
+
   @media (max-width: 600px) {
     .pool-score { width: 54px; font-size: 22px; }
     .pool-pos { width: 34px; font-size: 18px; }
@@ -1206,6 +1297,8 @@
 
   <div class="section-head" id="heckleHead" style="display:none;">HECKLE FEED</div>
   <div id="heckleFeed" style="margin-bottom:16px;"></div>
+
+  <div id="sweatMeter" style="display:none;"></div>
 
   <div class="section-head">POOL STANDINGS</div>
   <div class="pool-board" id="poolBoard"></div>
@@ -1540,7 +1633,102 @@ function renderGolferDetail(g) {
   </div>`;
 }
 
+function renderSweatMeter() {
+  const container = document.getElementById('sweatMeter');
+  const claimed = getClaimedTeam();
+  if (!claimed) { container.style.display = 'none'; return; }
+
+  const team = pool.teams.find(t => t.name === claimed);
+  if (!team) { container.style.display = 'none'; return; }
+
+  const golfers = team.golfers.filter(g => g).map(name => {
+    const data = pool.scores[name] || {};
+    const info = GOLFERS.find(x => x.name === name);
+    return { name, ...data, info };
+  });
+
+  if (!golfers.length) { container.style.display = 'none'; return; }
+
+  // Calculate sweat level per golfer
+  // Factors: score relative to projected cut, make-cut odds, current position
+  const rows = golfers.map(g => {
+    if (g.status === 'cut' || g.status === 'wd') {
+      return { name: g.name, pct: 100, level: 'cooked', label: 'COOKED' };
+    }
+
+    let sweat = 0;
+
+    // Base sweat from score — higher score = more sweat
+    if (g.score !== null) {
+      if (g.score <= -4) sweat = 5;
+      else if (g.score <= -2) sweat = 15;
+      else if (g.score <= 0) sweat = 25;
+      else if (g.score <= 2) sweat = 45;
+      else if (g.score <= 4) sweat = 65;
+      else if (g.score <= 6) sweat = 80;
+      else sweat = 90;
+    } else {
+      sweat = 30; // No score yet, mild uncertainty
+    }
+
+    // Adjust by make-cut odds — worse odds = more sweat
+    if (g.info) {
+      const mc = g.info.mcOdds;
+      if (mc <= -800) sweat -= 10;       // heavy favorite to make cut
+      else if (mc <= -400) sweat -= 5;
+      else if (mc <= -200) sweat += 0;
+      else if (mc <= 0) sweat += 10;
+      else if (mc <= 200) sweat += 15;
+      else sweat += 20;                  // longshot to make cut
+    }
+
+    // Adjust by position — lower position = less sweat
+    if (g.position) {
+      if (g.position <= 10) sweat -= 10;
+      else if (g.position <= 20) sweat -= 5;
+      else if (g.position <= 40) sweat += 0;
+      else if (g.position <= 55) sweat += 10;
+      else sweat += 15;
+    }
+
+    sweat = Math.max(0, Math.min(100, sweat));
+
+    let level, label;
+    if (sweat <= 20) { level = 'chill'; label = 'CHILLIN'; }
+    else if (sweat <= 40) { level = 'warm'; label = 'WARM'; }
+    else if (sweat <= 60) { level = 'sweating'; label = 'SWEATIN'; }
+    else if (sweat <= 80) { level = 'soaked'; label = 'SOAKED'; }
+    else { level = 'cooked'; label = 'COOKED'; }
+
+    return { name: g.name, pct: sweat, level, label };
+  });
+
+  // Team verdict
+  const avgSweat = Math.round(rows.reduce((s, r) => s + r.pct, 0) / rows.length);
+  let verdict;
+  if (avgSweat <= 20) verdict = "Your squad is <strong>cruising</strong>. Sit back and enjoy the azaleas.";
+  else if (avgSweat <= 35) verdict = "Looking <strong>solid</strong>. A couple birdies and you're golden.";
+  else if (avgSweat <= 50) verdict = "It's <strong>getting interesting</strong>. Might want to put the beer down.";
+  else if (avgSweat <= 65) verdict = "You're <strong>on the bubble</strong>. Time to start stress-eating.";
+  else if (avgSweat <= 80) verdict = "<strong>Full sweat mode.</strong> Your guys are circling the drain.";
+  else verdict = "It's <strong>over</strong>. Go touch grass. Actually, don't — grass reminds you of Augusta.";
+
+  container.style.display = 'block';
+  container.innerHTML = `<div class="sweat-card">
+    <div class="sweat-title">SWEAT METER</div>
+    ${rows.map(r => `<div class="sweat-row">
+      <span class="sweat-name">${esc(r.name)}</span>
+      <div class="sweat-bar-track">
+        <div class="sweat-bar-fill ${r.level}" style="width:${r.pct}%"></div>
+      </div>
+      <span class="sweat-label ${r.level}">${r.label}</span>
+    </div>`).join('')}
+    <div class="sweat-verdict">${verdict}</div>
+  </div>`;
+}
+
 function renderLive() {
+  renderSweatMeter();
   renderScoreInputs();
 
   // Calculate team scores
