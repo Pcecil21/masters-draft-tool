@@ -3923,12 +3923,38 @@ function saveBets() {
   saveBetsToCloud();
 }
 
+const BET_STATUS_PRIORITY = { pending: 0, accepted: 1, declined: 1, settled: 2 };
+
+function mergeBetArrays(local, cloud) {
+  const byId = {};
+  // Start with cloud as base
+  (cloud || []).forEach(b => { byId[b.id] = { ...b }; });
+  // Merge local — keep whichever has the more advanced status
+  (local || []).forEach(b => {
+    const existing = byId[b.id];
+    if (!existing) {
+      byId[b.id] = { ...b };
+    } else {
+      const localPri = BET_STATUS_PRIORITY[b.status] ?? 0;
+      const cloudPri = BET_STATUS_PRIORITY[existing.status] ?? 0;
+      if (localPri >= cloudPri) {
+        byId[b.id] = { ...b };
+      }
+    }
+  });
+  return Object.values(byId).sort((a, b) => (b.created || '').localeCompare(a.created || ''));
+}
+
 async function saveBetsToCloud() {
   if (!POOL_ID) return;
   try {
+    // Read-merge-write: merge local bets with cloud to prevent overwrites
     const { data } = await sb.from('draft_pools').select('scores').eq('pool_id', POOL_ID).single();
     const scores = data?.scores || {};
-    scores.bets = bets;
+    const cloudBets = scores.bets || [];
+    scores.bets = mergeBetArrays(bets, cloudBets);
+    bets = scores.bets; // update local to merged version
+    localStorage.setItem(`masters-bets-${POOL_ID || 'local'}`, JSON.stringify(bets));
     await sb.from('draft_pools').update({ scores, updated_at: new Date().toISOString() }).eq('pool_id', POOL_ID);
   } catch(e) {}
 }
@@ -3938,7 +3964,7 @@ async function loadBetsFromCloud() {
   try {
     const { data } = await sb.from('draft_pools').select('scores').eq('pool_id', POOL_ID).single();
     if (data?.scores?.bets) {
-      bets = data.scores.bets;
+      bets = mergeBetArrays(bets, data.scores.bets);
       localStorage.setItem(`masters-bets-${POOL_ID}`, JSON.stringify(bets));
     }
   } catch(e) {}
@@ -3972,7 +3998,9 @@ function proposeBet() {
   renderBets();
 }
 
-function respondBet(id, accept) {
+async function respondBet(id, accept) {
+  // Load latest from cloud first to avoid stale overwrites
+  await loadBetsFromCloud();
   const bet = bets.find(b => b.id === id);
   if (!bet) return;
   bet.status = accept ? 'accepted' : 'declined';
