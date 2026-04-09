@@ -6,21 +6,21 @@ Reviewed 2026-04-08. Full CEO-mode EXPANSION review completed. Implementation ta
 
 | # | Task | Effort | Status |
 |---|---|---|---|
-| 1 | Extract `golfers.js` + `YEAR` constant | 15 min | TODO |
-| 2 | Delete `masters-draft.html` | 1 min | TODO |
-| 3 | Add `owner_secret` column + RLS lockdown | 30 min | TODO |
-| 4 | Admin URL with owner key recovery | 20 min | TODO |
-| 5 | Switch viewers to Supabase Realtime (not polling) | 30 min | TODO |
-| 6 | Reconnect logic + 3-state sync indicator | 25 min | TODO |
-| 7 | `esc()` XSS helper on all name interpolations | 10 min | TODO |
-| 8 | Extract `replayHistory()` (DRY) | 10 min | TODO |
-| 9 | Wire tracker.html to Supabase via `?pool=` | 45 min | TODO |
-| 10 | Clipboard fallback + pool ID collision check | 10 min | TODO |
-| 11 | Draft recap / share card (build after all picks) | 25 min | TODO |
-| 12 | Auto-scroll to next best available after each pick | 10 min | TODO |
-| 13 | Last pick toast notification (viewers see it too) | 15 min | TODO |
-| 14 | Create TESTING.md + deploy freeze policy | 10 min | TODO |
-| 15 | Redeploy to Vercel | 1 min | TODO |
+| 1 | Extract `golfers.js` + `YEAR` constant | 15 min | DONE |
+| 2 | Delete `masters-draft.html` | 1 min | DONE |
+| 3 | Add `owner_secret` column + RLS lockdown | 30 min | DONE |
+| 4 | Admin URL with owner key recovery | 20 min | DONE |
+| 5 | Switch viewers to Supabase Realtime (not polling) | 30 min | DONE |
+| 6 | Reconnect logic + 3-state sync indicator | 25 min | DONE |
+| 7 | `esc()` XSS helper on all name interpolations | 10 min | DONE |
+| 8 | Extract `replayHistory()` (DRY) | 10 min | DONE |
+| 9 | Wire tracker.html to Supabase via `?pool=` | 45 min | DONE |
+| 10 | Clipboard fallback + pool ID collision check | 10 min | DONE |
+| 11 | Draft recap / share card (build after all picks) | 25 min | DONE |
+| 12 | Auto-scroll to next best available after each pick | 10 min | DONE |
+| 13 | Last pick toast notification (viewers see it too) | 15 min | DONE |
+| 14 | Create TESTING.md + deploy freeze policy | 10 min | DONE |
+| 15 | Redeploy to Vercel | 1 min | READY |
 
 ## Delight Items (TODOS)
 
@@ -42,4 +42,4 @@ Reviewed 2026-04-08. Full CEO-mode EXPANSION review completed. Implementation ta
 
 - Project: Home Grown Hockey (`bbjwssziyytnmtwarfbh`)
 - Table: `draft_pools` (pool_id, state, updated_at)
-- Needs: ALTER to add `owner_secret` text column, `scores` jsonb column
+- Migration: `supabase-migration.sql` (run before deploy) — adds owner_secret, scores columns + RLS + Realtime

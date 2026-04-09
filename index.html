@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Masters Draft Tool 2026</title>
+<title>Masters Draft Tool</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="golfers.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -802,12 +803,90 @@
     .g:hover { background: var(--bg-hover); }
     .g-list { padding-bottom: 20px; }
   }
+
+  /* Sync indicator */
+  .sync-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+  .sync-dot.synced { background: #4ADE80; }
+  .sync-dot.syncing { background: var(--yellow); animation: blink 1s infinite; }
+  .sync-dot.disconnected { background: var(--red); }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* Toast notification */
+  .pick-toast {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    background: var(--augusta);
+    color: var(--champagne);
+    border: 1px solid var(--champagne);
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 10000;
+    pointer-events: none;
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    white-space: nowrap;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .pick-toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+
+  /* Draft recap card */
+  .recap-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 10px;
+  }
+  .recap-card.is-me { border-color: var(--champagne); background: rgba(11,74,46,0.12); }
+  .recap-team-name {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 8px;
+    color: var(--text-bright);
+  }
+  .recap-golfer {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .recap-golfer .recap-stats { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+  .recap-summary {
+    text-align: center;
+    padding: 12px;
+    background: var(--augusta-deep);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--champagne-pale);
+    line-height: 1.8;
+    white-space: pre-line;
+  }
 </style>
 </head>
 <body>
 
+<div class="pick-toast" id="pickToast"></div>
+
 <div class="header">
-  <div class="logo">MASTERS<span>DRAFT 2026</span></div>
+  <div class="logo">MASTERS<span id="logoYear">DRAFT</span></div>
   <div class="header-controls">
     <span class="hdr-label">Teams</span>
     <input type="number" class="hdr-input" id="draftSize" value="10" min="2" max="30" style="width:50px;text-align:center;">
@@ -816,7 +895,7 @@
     <span class="pick-indicator" id="pickBadge">PICK 1</span>
     <button class="hdr-btn owner-only" onclick="showSetup()">POOL</button>
     <button class="hdr-btn owner-only" onclick="undoLastPick()">UNDO</button>
-    <a href="tracker.html" class="hdr-btn" style="text-decoration:none;">TRACKER</a>
+    <a id="trackerLink" href="tracker.html" class="hdr-btn" style="text-decoration:none;">TRACKER</a>
     <button class="hdr-btn danger owner-only" onclick="resetDraft()">RESET</button>
   </div>
 </div>
@@ -824,6 +903,7 @@
   <span class="pool-label">POOL CODE:</span>
   <span class="pool-code" id="poolCode"></span>
   <button class="pool-copy" onclick="copyPoolLink()">COPY LINK</button>
+  <button class="pool-copy owner-only" onclick="copyAdminLink()">ADMIN LINK</button>
   <span class="pool-status" id="syncStatus"></span>
 </div>
 
@@ -876,6 +956,17 @@
   </div>
 </div>
 
+<!-- RECAP OVERLAY -->
+<div class="overlay" id="recapOverlay" style="z-index:700;">
+  <div class="modal" style="width:420px;max-height:85vh;overflow-y:auto;">
+    <div class="modal-golfer">DRAFT COMPLETE</div>
+    <div class="recap-summary" id="recapSummary"></div>
+    <div id="recapTeams"></div>
+    <button class="m-btn me" onclick="copyRecap()" style="margin-bottom:6px;">Copy Recap to Clipboard</button>
+    <button class="m-btn cancel" onclick="document.getElementById('recapOverlay').classList.remove('show')">Close</button>
+  </div>
+</div>
+
 <!-- SETUP OVERLAY -->
 <div class="overlay" id="setupOverlay" style="z-index:600;">
   <div class="modal" style="width:380px;">
@@ -918,6 +1009,16 @@
 </div>
 
 <script>
+document.title = `Masters Draft Tool ${YEAR}`;
+document.getElementById('logoYear').textContent = `DRAFT ${YEAR}`;
+// Update tracker link with pool param if available
+if (new URLSearchParams(window.location.search).get('pool')) {
+  document.getElementById('trackerLink').href = `tracker.html?pool=${new URLSearchParams(window.location.search).get('pool')}`;
+}
+
+// === XSS helper ===
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
 // === Supabase Setup ===
 const SUPABASE_URL = 'https://bbjwssziyytnmtwarfbh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiandzc3ppeXl0bm10d2FyZmJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNzExNDAsImV4cCI6MjA5MDc0NzE0MH0.N2jv7UyH_tEqgQiZeTRluJxcdp41AzNVGRTDZ3pmnHA';
@@ -928,6 +1029,11 @@ function getPoolId() {
   return params.get('pool');
 }
 
+function getOwnerSecret() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('key');
+}
+
 function generatePoolId() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let id = '';
@@ -935,28 +1041,94 @@ function generatePoolId() {
   return id;
 }
 
+function generateSecret() {
+  const arr = new Uint8Array(24);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+}
+
 function setPoolUrl(poolId) {
   const url = new URL(window.location);
   url.searchParams.set('pool', poolId);
+  // Include key in URL if owner
+  const secret = OWNER_SECRET;
+  if (secret) url.searchParams.set('key', secret);
   window.history.replaceState({}, '', url);
   document.getElementById('poolCode').textContent = poolId;
   document.getElementById('poolBar').style.display = 'flex';
 }
 
+function getViewerUrl() {
+  const url = new URL(window.location);
+  url.searchParams.set('pool', POOL_ID);
+  url.searchParams.delete('key');
+  return url.toString();
+}
+
+function getAdminUrl() {
+  const url = new URL(window.location);
+  url.searchParams.set('pool', POOL_ID);
+  if (OWNER_SECRET) url.searchParams.set('key', OWNER_SECRET);
+  return url.toString();
+}
+
 function copyPoolLink() {
-  navigator.clipboard.writeText(window.location.href).then(() => {
-    const btn = document.querySelector('.pool-copy');
+  const btn = document.querySelector('.pool-copy');
+  const url = getViewerUrl();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => {
+      btn.textContent = 'COPIED!';
+      setTimeout(() => btn.textContent = 'COPY LINK', 1500);
+    }).catch(fallbackCopy);
+  } else {
+    fallbackCopy();
+  }
+  function fallbackCopy() {
+    const ta = document.createElement('textarea');
+    ta.value = url;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
     btn.textContent = 'COPIED!';
     setTimeout(() => btn.textContent = 'COPY LINK', 1500);
-  });
+  }
+}
+
+function copyAdminLink() {
+  const btn = document.querySelectorAll('.pool-copy')[1];
+  const url = getAdminUrl();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => {
+      btn.textContent = 'COPIED!';
+      setTimeout(() => btn.textContent = 'ADMIN LINK', 1500);
+    });
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = url;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = 'COPIED!';
+    setTimeout(() => btn.textContent = 'ADMIN LINK', 1500);
+  }
 }
 
 let POOL_ID = getPoolId();
+let OWNER_SECRET = getOwnerSecret() || (POOL_ID ? localStorage.getItem('masters-pool-secret-' + POOL_ID) : null);
+// Persist secret from URL to localStorage
+if (POOL_ID && OWNER_SECRET) localStorage.setItem('masters-pool-secret-' + POOL_ID, OWNER_SECRET);
 let syncTimer = null;
 
 function isOwner() {
   if (!POOL_ID) return true; // no pool yet, treat as owner
-  return localStorage.getItem('masters-pool-owner-' + POOL_ID) === 'true';
+  // Owner if we have the secret (from URL or localStorage)
+  return !!OWNER_SECRET;
 }
 
 async function saveToCloud() {
@@ -969,10 +1141,15 @@ async function saveToCloud() {
     history: S.history.map(h => ({ gId: h.g.id, type: h.type, num: h.num, drafter: h.drafter })),
   };
   try {
-    await sb.from('draft_pools').upsert({ pool_id: POOL_ID, state, updated_at: new Date().toISOString() });
-    document.getElementById('syncStatus').textContent = 'Saved ✓';
+    const row = { pool_id: POOL_ID, state, updated_at: new Date().toISOString() };
+    if (OWNER_SECRET) row.owner_secret = OWNER_SECRET;
+    await sb.from('draft_pools').upsert(row, {
+      onConflict: 'pool_id',
+      ...(OWNER_SECRET ? { headers: { 'x-owner-secret': OWNER_SECRET } } : {}),
+    });
+    updateSyncIndicator('synced');
   } catch(e) {
-    document.getElementById('syncStatus').textContent = 'Save failed';
+    updateSyncIndicator('error');
   }
 }
 
@@ -987,122 +1164,38 @@ async function loadFromCloud() {
       S.size = loaded.draftOrder.length;
     }
     // Restore per-user identity from localStorage
-    const local = JSON.parse(localStorage.getItem('masters-draft-state-2026') || '{}');
+    const local = JSON.parse(localStorage.getItem(`masters-draft-state-${YEAR}`) || '{}');
     S.myName = local.myName || '';
     S.slot = local.slot || 1;
     if (loaded.history && loaded.history.length) {
       S.pick = loaded.pick || 1;
-      loaded.history.forEach(h => {
-        const g = GOLFERS.find(x => x.id === h.gId);
-        if (!g) return;
-        // Mark as "me" if drafter matches this user's name
-        if (S.myName && h.drafter === S.myName) {
-          g.status = 'drafted-me';
-          const slot = S.myRoster.findIndex(s => s === null);
-          if (slot >= 0) S.myRoster[slot] = g;
-        } else {
-          g.status = 'drafted-other';
-        }
-        S.history.push({ g, type: S.myName && h.drafter === S.myName ? 'me' : 'opponent', num: h.num, drafter: h.drafter });
-      });
+      replayHistory(loaded.history, h => S.myName && h.drafter === S.myName);
     }
-    document.getElementById('syncStatus').textContent = 'Synced ✓';
+    updateSyncIndicator('synced');
     return true;
   } catch(e) {
     return false;
   }
 }
 
-const GOLFERS = [
-  { name: "Scottie Scheffler", winOdds: 490, mcOdds: -1300, top5: 106, top10: -192, top20: -450, tier: 1, augustaHistory: "2W (2022, 2024), T10 2023, T2 2025", notes: "Best player in world, 2x champ", debut: false, adp: 1 },
-  { name: "Jon Rahm", winOdds: 910, mcOdds: -800, top5: 175, top10: -120, top20: -280, tier: 1, augustaHistory: "T5 2023, T7 2022, MC 2025", notes: "Elite SG:OTT, LIV form unclear", debut: false, adp: 2 },
-  { name: "Bryson DeChambeau", winOdds: 1075, mcOdds: -650, top5: 210, top10: 104, top20: -220, tier: 1, augustaHistory: "T2 2025, T34 2022, MC 2023", notes: "Massive length, Par 5 monster", debut: false, adp: 3 },
-  { name: "Rory McIlroy", winOdds: 1175, mcOdds: -650, top5: 225, top10: 108, top20: -210, tier: 1, augustaHistory: "W 2025, T5 2022, T7 2023, T2 2024", notes: "Defending champ, putting 102nd", debut: false, adp: 4 },
-  { name: "Ludvig Aberg", winOdds: 1700, mcOdds: -500, top5: 320, top10: 154, top20: -144, tier: 2, augustaHistory: "T14 2024, T22 2025", notes: "Elite ball-striker, improving", debut: false, adp: 5 },
-  { name: "Xander Schauffele", winOdds: 1800, mcOdds: -440, top5: 305, top10: 140, top20: -172, tier: 2, augustaHistory: "T3 2021, T6 2019", notes: "Outstanding Augusta record", debut: false, adp: 6 },
-  { name: "Tommy Fleetwood", winOdds: 2300, mcOdds: -390, top5: 370, top10: 168, top20: -144, tier: 2, augustaHistory: "T14 2023, T22 2024", notes: "Strong approach, good irons", debut: false, adp: 7 },
-  { name: "Cameron Young", winOdds: 2300, mcOdds: -430, top5: 390, top10: 182, top20: -128, tier: 2, augustaHistory: "T12 2024", notes: "Big hitter, boom-or-bust", debut: false, adp: 8 },
-  { name: "Matt Fitzpatrick", winOdds: 2350, mcOdds: -400, top5: 390, top10: 176, top20: -134, tier: 2, augustaHistory: "T5 2024, T13 2023", notes: "Precision, elite approach", debut: false, adp: 9 },
-  { name: "Hideki Matsuyama", winOdds: 2700, mcOdds: -270, top5: 435, top10: 196, top20: -122, tier: 3, augustaHistory: "W 2021, T2 2024, T5 2015", notes: "Masters champ, elite approach", debut: false, adp: 10 },
-  { name: "Collin Morikawa", winOdds: 3100, mcOdds: -340, top5: 480, top10: 215, top20: -112, tier: 3, augustaHistory: "T13 2023, T21 2022", notes: "Best iron player on tour", debut: false, adp: 11 },
-  { name: "Robert MacIntyre", winOdds: 3400, mcOdds: -310, top5: 530, top10: 240, top20: 100, tier: 3, augustaHistory: "T12 2021", notes: "Lefty, good short game", debut: false, adp: 12 },
-  { name: "Min Woo Lee", winOdds: 3500, mcOdds: -300, top5: 540, top10: 245, top20: 102, tier: 3, augustaHistory: "MC 2024", notes: "Big hitter, limited Augusta exp", debut: false, adp: 13 },
-  { name: "Justin Rose", winOdds: 3500, mcOdds: -250, top5: 580, top10: 270, top20: 116, tier: 3, augustaHistory: "T2 2017, T5 2021, T10 2018", notes: "Augusta specialist, knows course", debut: false, adp: 14 },
-  { name: "Brooks Koepka", winOdds: 3700, mcOdds: -260, top5: 630, top10: 290, top20: 126, tier: 3, augustaHistory: "T2 2019, T7 2023", notes: "Major pedigree, clutch", debut: false, adp: 15 },
-  { name: "Jordan Spieth", winOdds: 4200, mcOdds: -250, top5: 650, top10: 285, top20: 120, tier: 3, augustaHistory: "W 2015, T2 2014/2016, T3 2018", notes: "Augusta legend, knows every slope", debut: false, adp: 16 },
-  { name: "Chris Gotterup", winOdds: 4200, mcOdds: -240, top5: 670, top10: 300, top20: 130, tier: 3, augustaHistory: "Debut", notes: "Hot form, big hitter, debut risk", debut: true, adp: 17 },
-  { name: "Patrick Reed", winOdds: 4300, mcOdds: -265, top5: 670, top10: 300, top20: 126, tier: 4, augustaHistory: "W 2018, T12 2019", notes: "Masters champ, inconsistent", debut: false, adp: 18 },
-  { name: "Viktor Hovland", winOdds: 4500, mcOdds: -275, top5: 690, top10: 310, top20: 132, tier: 4, augustaHistory: "T16 2023, T22 2024", notes: "Elite ball-striking, weak short game", debut: false, adp: 19 },
-  { name: "Russell Henley", winOdds: 4700, mcOdds: -245, top5: 660, top10: 280, top20: 114, tier: 4, augustaHistory: "T12 2024", notes: "Underrated, consistent", debut: false, adp: 20 },
-  { name: "Si Woo Kim", winOdds: 4900, mcOdds: -370, top5: 680, top10: 290, top20: 118, tier: 4, augustaHistory: "MC 2023, T14 2022", notes: "High MC rate, creative", debut: false, adp: 21 },
-  { name: "Justin Thomas", winOdds: 5400, mcOdds: -184, top5: 830, top10: 375, top20: 160, tier: 4, augustaHistory: "T4 2020, T21 2023", notes: "Down year but elite talent", debut: false, adp: 22 },
-  { name: "Akshay Bhatia", winOdds: 5700, mcOdds: -220, top5: 820, top10: 355, top20: 146, tier: 4, augustaHistory: "T29 2024", notes: "Young lefty, high ceiling", debut: false, adp: 23 },
-  { name: "Patrick Cantlay", winOdds: 5800, mcOdds: -205, top5: 820, top10: 355, top20: 146, tier: 4, augustaHistory: "T9 2019, T17 2023", notes: "Smart, consistent, low-variance", debut: false, adp: 24 },
-  { name: "Adam Scott", winOdds: 6000, mcOdds: -220, top5: 850, top10: 365, top20: 148, tier: 4, augustaHistory: "W 2013, T9 2020, T18 2023", notes: "Masters champ, Augusta vet", debut: false, adp: 25 },
-  { name: "Jason Day", winOdds: 6700, mcOdds: -215, top5: 900, top10: 380, top20: 152, tier: 5, augustaHistory: "T2 2011, T3 2013, T5 2019", notes: "Augusta specialist", debut: false, adp: 26 },
-  { name: "Jake Knapp", winOdds: 6700, mcOdds: -184, top5: 960, top10: 415, top20: 172, tier: 5, augustaHistory: "Debut", notes: "Big hitter, debut", debut: true, adp: 27 },
-  { name: "Shane Lowry", winOdds: 6800, mcOdds: -210, top5: 920, top10: 385, top20: 154, tier: 5, augustaHistory: "T6 2023, T25 2024", notes: "Major winner, great short game", debut: false, adp: 28 },
-  { name: "Sam Burns", winOdds: 7000, mcOdds: -210, top5: 960, top10: 410, top20: 166, tier: 5, augustaHistory: "T15 2023", notes: "Talented, inconsistent", debut: false, adp: 29 },
-  { name: "J.J. Spaun", winOdds: 7200, mcOdds: -188, top5: 1000, top10: 430, top20: 176, tier: 5, augustaHistory: "MC 2022", notes: "Consistent", debut: false, adp: 30 },
-  { name: "Sepp Straka", winOdds: 7400, mcOdds: -194, top5: 990, top10: 420, top20: 168, tier: 5, augustaHistory: "T12 2023", notes: "Steady, high floor", debut: false, adp: 31 },
-  { name: "Tyrrell Hatton", winOdds: 7600, mcOdds: -188, top5: 1025, top10: 440, top20: 178, tier: 5, augustaHistory: "T13 2024", notes: "LIV, temperamental", debut: false, adp: 32 },
-  { name: "Corey Conners", winOdds: 7800, mcOdds: -192, top5: 1025, top10: 435, top20: 172, tier: 5, augustaHistory: "T6 2020, T10 2021", notes: "ELITE irons, great Augusta record", debut: false, adp: 33 },
-  { name: "Nicolai Hojgaard", winOdds: 7800, mcOdds: -180, top5: 1050, top10: 445, top20: 180, tier: 5, augustaHistory: "T30 2024", notes: "Rising talent", debut: false, adp: 34 },
-  { name: "Maverick McNealy", winOdds: 8400, mcOdds: -178, top5: 1100, top10: 460, top20: 184, tier: 6, augustaHistory: "MC 2024", notes: "Steady floor", debut: false, adp: 35 },
-  { name: "Jacob Bridgeman", winOdds: 8600, mcOdds: -176, top5: 1125, top10: 465, top20: 184, tier: 6, augustaHistory: "Debut", notes: "DG Points leader", debut: true, adp: 36 },
-  { name: "Kurt Kitayama", winOdds: 9800, mcOdds: -180, top5: 1225, top10: 510, top20: 200, tier: 6, augustaHistory: "T38 2023", notes: "Can score", debut: false, adp: 37 },
-  { name: "Harris English", winOdds: 10000, mcOdds: -162, top5: 1250, top10: 500, top20: 198, tier: 6, augustaHistory: "T10 2020, T21 2021", notes: "Good Augusta results", debut: false, adp: 38 },
-  { name: "Daniel Berger", winOdds: 10500, mcOdds: -150, top5: 1300, top10: 530, top20: 205, tier: 6, augustaHistory: "T12 2021", notes: "Talented, injury risk", debut: false, adp: 39 },
-  { name: "Gary Woodland", winOdds: 10500, mcOdds: -158, top5: 1350, top10: 560, top20: 220, tier: 6, augustaHistory: "T15 2019", notes: "Major winner", debut: false, adp: 40 },
-  { name: "Ben Griffin", winOdds: 11000, mcOdds: -160, top5: 1325, top10: 540, top20: 210, tier: 6, augustaHistory: "Debut", notes: "Debut risk", debut: true, adp: 41 },
-  { name: "Cameron Smith", winOdds: 11000, mcOdds: -166, top5: 1425, top10: 590, top20: 230, tier: 6, augustaHistory: "T3 2020, T5 2022", notes: "Elite short game, great Augusta", debut: false, adp: 42 },
-  { name: "Max Homa", winOdds: 12000, mcOdds: -134, top5: 1550, top10: 650, top20: 260, tier: 6, augustaHistory: "T16 2024", notes: "Inconsistent", debut: false, adp: 43 },
-  { name: "Keegan Bradley", winOdds: 13500, mcOdds: -132, top5: 1600, top10: 650, top20: 250, tier: 6, augustaHistory: "T6 2023", notes: "Ryder Cup captain", debut: false, adp: 44 },
-  { name: "Rasmus Hojgaard", winOdds: 12500, mcOdds: -134, top5: 1550, top10: 640, top20: 250, tier: 6, augustaHistory: "MC 2024", notes: "Twin of Nicolai", debut: false, adp: 45 },
-  { name: "Alex Noren", winOdds: 16000, mcOdds: -125, top5: 1800, top10: 710, top20: 265, tier: 6, augustaHistory: "MC 2019", notes: "Steady veteran", debut: false, adp: 46 },
-  { name: "Nick Taylor", winOdds: 19500, mcOdds: -116, top5: 2100, top10: 800, top20: 295, tier: 6, augustaHistory: "T17 2024", notes: "Under the radar", debut: false, adp: 47 },
-  { name: "Brian Harman", winOdds: 22500, mcOdds: -118, top5: 2400, top10: 910, top20: 335, tier: 6, augustaHistory: "T6 2023", notes: "Major winner, crafty", debut: false, adp: 48 },
-  { name: "Wyndham Clark", winOdds: 21000, mcOdds: 102, top5: 2500, top10: 1000, top20: 390, tier: 6, augustaHistory: "MC 2024", notes: "US Open winner", debut: false, adp: 49 },
-  { name: "Sergio Garcia", winOdds: 24000, mcOdds: -104, top5: 2600, top10: 980, top20: 360, tier: 6, augustaHistory: "W 2017, T4 2014, T2 2016", notes: "Augusta LEGEND", debut: false, adp: 50 },
-  { name: "Dustin Johnson", winOdds: 26000, mcOdds: 100, top5: 2800, top10: 1050, top20: 390, tier: 6, augustaHistory: "W 2020, T2 2019, T6 2016", notes: "Masters champ, declining", debut: false, adp: 51 },
-  { name: "Ryan Fox", winOdds: 21000, mcOdds: 106, top5: 2350, top10: 920, top20: 345, tier: 6, augustaHistory: "MC 2023", notes: "Big hitter", debut: false, adp: 52 },
-  { name: "Marco Penge", winOdds: 14000, mcOdds: -125, top5: 1750, top10: 700, top20: 270, tier: 6, augustaHistory: "Debut", notes: "European", debut: true, adp: 53 },
-  { name: "Harry Hall", winOdds: 15500, mcOdds: -128, top5: 1800, top10: 710, top20: 270, tier: 6, augustaHistory: "Debut", notes: "Solid form", debut: true, adp: 54 },
-  { name: "Ryan Gerard", winOdds: 16000, mcOdds: -126, top5: 1850, top10: 720, top20: 270, tier: 6, augustaHistory: "Debut", notes: "Debut", debut: true, adp: 55 },
-  { name: "Michael Kim", winOdds: 22500, mcOdds: 100, top5: 2450, top10: 940, top20: 350, tier: 7, augustaHistory: "Debut", notes: "Debut", debut: true, adp: 56 },
-  { name: "Max Greyserman", winOdds: 22500, mcOdds: 102, top5: 2500, top10: 970, top20: 365, tier: 7, augustaHistory: "Debut", notes: "Debut", debut: true, adp: 57 },
-  { name: "Aaron Rai", winOdds: 23000, mcOdds: -108, top5: 2500, top10: 950, top20: 350, tier: 7, augustaHistory: "Debut", notes: "Consistent", debut: true, adp: 58 },
-  { name: "Kristoffer Reitan", winOdds: 23000, mcOdds: 108, top5: 2500, top10: 980, top20: 365, tier: 7, augustaHistory: "Debut", notes: "Debut", debut: true, adp: 59 },
-  { name: "Casey Jarvis", winOdds: 24000, mcOdds: -102, top5: 2600, top10: 980, top20: 360, tier: 7, augustaHistory: "Debut", notes: "Young SA talent", debut: true, adp: 60 },
-  { name: "Carlos Ortiz", winOdds: 25000, mcOdds: 106, top5: 2700, top10: 1025, top20: 380, tier: 7, augustaHistory: "T21 2021", notes: "Mexican", debut: false, adp: 61 },
-  { name: "Tom McKibbin", winOdds: 26000, mcOdds: 100, top5: 2700, top10: 1025, top20: 370, tier: 7, augustaHistory: "Debut", notes: "Young Irish", debut: true, adp: 62 },
-  { name: "Matt McCarty", winOdds: 30000, mcOdds: 120, top5: 3000, top10: 1125, top20: 405, tier: 7, augustaHistory: "Debut", notes: "Debut", debut: true, adp: 63 },
-  { name: "Haotong Li", winOdds: 30000, mcOdds: 112, top5: 3100, top10: 1150, top20: 415, tier: 7, augustaHistory: "T3 2017", notes: "Augusta pedigree", debut: false, adp: 64 },
-  { name: "Andrew Novak", winOdds: 31000, mcOdds: 115, top5: 3100, top10: 1150, top20: 415, tier: 7, augustaHistory: "Debut", notes: "Debut", debut: true, adp: 65 },
-  { name: "Nico Echavarria", winOdds: 34000, mcOdds: 114, top5: 3400, top10: 1250, top20: 445, tier: 7, augustaHistory: "Debut", notes: "Colombian", debut: true, adp: 66 },
-  { name: "Rasmus Neergaard-Petersen", winOdds: 34000, mcOdds: 114, top5: 3400, top10: 1250, top20: 455, tier: 7, augustaHistory: "Debut", notes: "Danish", debut: true, adp: 67 },
-  { name: "Sami Valimaki", winOdds: 39000, mcOdds: 138, top5: 3800, top10: 1350, top20: 475, tier: 7, augustaHistory: "Debut", notes: "Finnish", debut: true, adp: 68 },
-  { name: "Aldrich Potgieter", winOdds: 39000, mcOdds: 134, top5: 4000, top10: 1475, top20: 530, tier: 7, augustaHistory: "Debut", notes: "Young SA", debut: true, adp: 69 },
-  { name: "Johnny Keefer", winOdds: 40000, mcOdds: 128, top5: 3900, top10: 1425, top20: 500, tier: 7, augustaHistory: "Debut", notes: "Amateur", debut: true, adp: 70 },
-  { name: "Michael Brennan", winOdds: 40000, mcOdds: 136, top5: 4000, top10: 1450, top20: 520, tier: 7, augustaHistory: "Debut", notes: "Amateur", debut: true, adp: 71 },
-  { name: "Zach Johnson", winOdds: 55000, mcOdds: 200, top5: 4900, top10: 1650, top20: 550, tier: 7, augustaHistory: "W 2007", notes: "Past champ, 49", debut: false, adp: 72 },
-  { name: "Bubba Watson", winOdds: 55000, mcOdds: 162, top5: 5100, top10: 1750, top20: 600, tier: 7, augustaHistory: "2W (2012, 2014)", notes: "2x champ, semi-retired", debut: false, adp: 73 },
-  { name: "Charl Schwartzel", winOdds: 65000, mcOdds: 156, top5: 5700, top10: 1900, top20: 630, tier: 7, augustaHistory: "W 2011", notes: "Past champ, LIV", debut: false, adp: 74 },
-  { name: "Davis Riley", winOdds: 85000, mcOdds: 144, top5: 7600, top10: 2500, top20: 840, tier: 7, augustaHistory: "MC 2023", notes: "Limited", debut: false, adp: 75 },
-  { name: "Danny Willett", winOdds: 250000, mcOdds: 315, top5: 17000, top10: 5000, top20: 1450, tier: 7, augustaHistory: "W 2016", notes: "Past champ", debut: false, adp: 80 },
-  { name: "Brian Campbell", winOdds: 250000, mcOdds: 380, top5: 17000, top10: 4900, top20: 1425, tier: 7, augustaHistory: "Debut", notes: "Amateur", debut: true, adp: 81 },
-  { name: "Mason Howell", winOdds: 300000, mcOdds: 415, top5: 21000, top10: 6100, top20: 1750, tier: 7, augustaHistory: "Debut", notes: "Amateur", debut: true, adp: 82 },
-  { name: "Ethan Fang", winOdds: 350000, mcOdds: 310, top5: 24000, top10: 7000, top20: 1850, tier: 7, augustaHistory: "Debut", notes: "Amateur", debut: true, adp: 83 },
-  { name: "Pongsapek Laopakdee", winOdds: 350000, mcOdds: 365, top5: 27000, top10: 8000, top20: 2250, tier: 7, augustaHistory: "Debut", notes: "Amateur (Fifa)", debut: true, adp: 84 },
-  { name: "Naoyuki Kataoka", winOdds: 450000, mcOdds: 970, top5: 35000, top10: 9600, top20: 2500, tier: 7, augustaHistory: "Debut", notes: "Amateur", debut: true, adp: 85 },
-  { name: "Vijay Singh", winOdds: 500000, mcOdds: 445, top5: 49000, top10: 17000, top20: 3600, tier: 7, augustaHistory: "W 2000", notes: "Past champ, 63", debut: false, adp: 88 },
-  { name: "Fred Couples", winOdds: 500000, mcOdds: 800, top5: 49000, top10: 19000, top20: 3900, tier: 7, augustaHistory: "W 1992", notes: "Past champ, 66", debut: false, adp: 89 },
-  { name: "Jose Maria Olazabal", winOdds: 500000, mcOdds: 800, top5: 50000, top10: 32000, top20: 6300, tier: 7, augustaHistory: "2W (1994, 1999)", notes: "2x champ, 59", debut: false, adp: 90 },
-  { name: "Mike Weir", winOdds: 500000, mcOdds: 1050, top5: 50000, top10: 24000, top20: 4800, tier: 7, augustaHistory: "W 2003", notes: "Past champ, 55", debut: false, adp: 91 },
-  { name: "Jackson Herrington", winOdds: 500000, mcOdds: 680, top5: 49000, top10: 20000, top20: 4900, tier: 7, augustaHistory: "Debut", notes: "Amateur", debut: true, adp: 86 },
-  { name: "Mateo Pulcini", winOdds: 500000, mcOdds: 490, top5: 50000, top10: 25000, top20: 4900, tier: 7, augustaHistory: "Debut", notes: "Amateur", debut: true, adp: 87 },
-  { name: "Brandon Holtz", winOdds: 500000, mcOdds: 790, top5: 45000, top10: 21000, top20: 7000, tier: 7, augustaHistory: "Debut", notes: "Amateur", debut: true, adp: 92 },
-];
+// GOLFERS array and YEAR constant loaded from golfers.js
+
+
+function replayHistory(entries, isMe) {
+  entries.forEach(h => {
+    const g = GOLFERS.find(x => x.id === h.gId);
+    if (!g) return;
+    const me = isMe(h);
+    if (me) {
+      g.status = 'drafted-me';
+      const slot = S.myRoster.findIndex(s => s === null);
+      if (slot >= 0) S.myRoster[slot] = g;
+    } else {
+      g.status = 'drafted-other';
+    }
+    S.history.push({ g, type: me ? 'me' : 'opponent', num: h.num, drafter: h.drafter });
+  });
+}
 
 // === Derived stats ===
 function oddsToProb(o) { return o < 0 ? Math.abs(o)/(Math.abs(o)+100) : 100/(o+100); }
@@ -1142,7 +1235,7 @@ async function initState() {
   }
   // Fallback to localStorage
   try {
-    const saved = localStorage.getItem('masters-draft-state-2026');
+    const saved = localStorage.getItem(`masters-draft-state-${YEAR}`);
     if (saved) {
       const loaded = JSON.parse(saved);
       if (loaded.draftOrder && loaded.draftOrder.length) {
@@ -1153,41 +1246,86 @@ async function initState() {
       }
       if (loaded.history && loaded.history.length) {
         S.pick = loaded.pick || 1;
-        loaded.history.forEach(h => {
-          const g = GOLFERS.find(x => x.id === h.gId);
-          if (!g) return;
-          if (h.type === 'me') {
-            g.status = 'drafted-me';
-            const slot = S.myRoster.findIndex(s => s === null);
-            if (slot >= 0) S.myRoster[slot] = g;
-          } else {
-            g.status = 'drafted-other';
-          }
-          S.history.push({ g, type: h.type, num: h.num, drafter: h.drafter });
-        });
+        replayHistory(loaded.history, h => h.type === 'me');
       }
     }
   } catch(e) {}
   render();
   if (!isOwner()) {
     document.querySelectorAll('.owner-only').forEach(el => el.style.display = 'none');
-    // Poll for updates every 10 seconds
-    setInterval(async () => {
-      GOLFERS.forEach(g => { g.status = 'available'; });
-      S.myRoster = [null, null, null];
-      S.history = [];
-      S.pick = 1;
-      await loadFromCloud();
-      render();
-    }, 10000);
+    // Subscribe to Realtime updates instead of polling
+    subscribeToPool();
   } else if (!S.draftOrder.length) {
     setTimeout(showSetup, 300);
   }
 }
 initState();
 
+// === Sync indicator ===
+function updateSyncIndicator(state) {
+  const el = document.getElementById('syncStatus');
+  const labels = { synced: 'Synced', syncing: 'Syncing...', disconnected: 'Offline', error: 'Save failed' };
+  const dotClass = state === 'error' ? 'disconnected' : state;
+  el.innerHTML = `<span class="sync-dot ${dotClass}"></span>${labels[state] || state}`;
+}
+
+// === Supabase Realtime ===
+let realtimeChannel = null;
+
+function reloadFromPayload(payload) {
+  const loaded = payload.new?.state;
+  if (!loaded) return;
+  // Reset and replay
+  GOLFERS.forEach(g => { g.status = 'available'; });
+  S.myRoster = [null, null, null];
+  S.history = [];
+  S.pick = 1;
+  if (loaded.draftOrder && loaded.draftOrder.length) {
+    S.draftOrder = loaded.draftOrder;
+    S.size = loaded.draftOrder.length;
+  }
+  if (loaded.history && loaded.history.length) {
+    S.pick = loaded.pick || 1;
+    replayHistory(loaded.history, h => S.myName && h.drafter === S.myName);
+  }
+  // Show toast for the latest pick if new
+  if (loaded.history && loaded.history.length) {
+    const last = loaded.history[loaded.history.length - 1];
+    const g = GOLFERS.find(x => x.id === last.gId);
+    if (g) showPickToast(last.drafter || 'OPP', g.name);
+  }
+  render();
+  updateSyncIndicator('synced');
+}
+
+function subscribeToPool() {
+  if (!POOL_ID) return;
+  if (realtimeChannel) sb.removeChannel(realtimeChannel);
+
+  updateSyncIndicator('syncing');
+
+  realtimeChannel = sb.channel(`pool-${POOL_ID}`)
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'draft_pools',
+      filter: `pool_id=eq.${POOL_ID}`,
+    }, (payload) => {
+      reloadFromPayload(payload);
+    })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        updateSyncIndicator('synced');
+      } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+        updateSyncIndicator('disconnected');
+        // Auto-reconnect after 3 seconds
+        setTimeout(() => subscribeToPool(), 3000);
+      }
+    });
+}
+
 function saveDraftMeta() {
-  localStorage.setItem('masters-draft-state-2026', JSON.stringify({
+  localStorage.setItem(`masters-draft-state-${YEAR}`, JSON.stringify({
     draftOrder: S.draftOrder,
     myName: S.myName,
     slot: S.slot,
@@ -1273,8 +1411,8 @@ function renderMemberList() {
   container.innerHTML = members.map((name, i) => {
     const checked = S.draftOrder.includes(name) ? 'checked' : '';
     return `<div class="member-row">
-      <input type="checkbox" id="mem${i}" ${checked} onchange="toggleMember('${name.replace(/'/g, "\\'")}', this.checked)">
-      <label for="mem${i}">${name}</label>
+      <input type="checkbox" id="mem${i}" ${checked} onchange="toggleMember('${esc(name).replace(/'/g, "\\'")}', this.checked)">
+      <label for="mem${i}">${esc(name)}</label>
       <button class="member-del" onclick="deleteMember(${i})" title="Remove permanently">&#10005;</button>
     </div>`;
   }).join('');
@@ -1345,7 +1483,7 @@ function renderOrderList() {
     const isMe = name === S.myName;
     return `<div class="order-row ${isMe ? 'is-me' : ''}">
       <span class="order-num">${i + 1}</span>
-      <span class="order-name">${name}</span>
+      <span class="order-name">${esc(name)}</span>
       <button class="order-me-btn ${isMe ? 'active' : ''}" onclick="setMe(${i})">ME</button>
       <div class="order-arrows">
         <button onclick="moveUp(${i})">&#9650;</button>
@@ -1407,27 +1545,36 @@ function setMe(i) {
   renderOrderList();
 }
 
-function confirmOrder() {
+async function confirmOrder() {
   document.getElementById('orderOverlay').classList.remove('show');
   document.getElementById('draftSize').value = S.size;
-  // Create a pool if none exists yet
+  // Create a pool if none exists yet (with collision check)
   if (!POOL_ID) {
-    POOL_ID = generatePoolId();
+    let newId, exists = true;
+    for (let attempt = 0; attempt < 5 && exists; attempt++) {
+      newId = generatePoolId();
+      try {
+        const { data } = await sb.from('draft_pools').select('pool_id').eq('pool_id', newId).single();
+        exists = !!data;
+      } catch(e) { exists = false; }
+    }
+    POOL_ID = newId;
+    OWNER_SECRET = generateSecret();
+    localStorage.setItem('masters-pool-secret-' + POOL_ID, OWNER_SECRET);
     setPoolUrl(POOL_ID);
-    localStorage.setItem('masters-pool-owner-' + POOL_ID, 'true');
   }
   saveDraftMeta();
 
   // Also push names to tracker localStorage
   try {
-    const trackerData = JSON.parse(localStorage.getItem('masters-pool-2026') || '{}');
+    const trackerData = JSON.parse(localStorage.getItem(`masters-pool-${YEAR}`) || '{}');
     trackerData.teams = S.draftOrder.map((name, i) => {
       const existing = trackerData.teams?.[i];
       return { name, golfers: existing?.golfers || ['', '', ''] };
     });
     const myIdx = S.draftOrder.indexOf(S.myName);
     if (myIdx >= 0) trackerData.meIndex = myIdx;
-    localStorage.setItem('masters-pool-2026', JSON.stringify(trackerData));
+    localStorage.setItem(`masters-pool-${YEAR}`, JSON.stringify(trackerData));
   } catch(e) {}
 
   render();
@@ -1484,7 +1631,7 @@ function renderDraftOrder() {
 
       html += `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;margin-bottom:2px;font-size:12px;${bg}">
         <span style="font-family:var(--mono);font-size:10px;color:var(--text-dim);width:16px;text-align:right;">${p.num}</span>
-        <span style="${meStyle}">${p.name}</span>
+        <span style="${meStyle}">${esc(p.name)}</span>
         ${p.made ? golfer : arrow}
       </div>`;
     });
@@ -1523,7 +1670,7 @@ function render() {
   const last = S.history.slice(-10);
   ticker.innerHTML = '<span class="ticker-label">PICKS</span>' + (last.length ? last.map(p=>{
     const who = p.drafter || (p.type==='me' ? S.myName||'ME' : 'OPP');
-    return `<span class="tick ${p.type==='me'?'mine':'opp'}"><span class="tick-num">${p.num}</span> ${who}: ${p.g.name}</span>`;
+    return `<span class="tick ${p.type==='me'?'mine':'opp'}"><span class="tick-num">${p.num}</span> ${esc(who)}: ${p.g.name}</span>`;
   }).join('') : '<span class="ticker-empty">Waiting for first pick...</span>');
   ticker.scrollLeft = ticker.scrollWidth;
 
@@ -1611,17 +1758,34 @@ function confirmDraft(type) {
 
   // Sync pick to tracker
   try {
-    const td = JSON.parse(localStorage.getItem('masters-pool-2026') || '{}');
+    const td = JSON.parse(localStorage.getItem(`masters-pool-${YEAR}`) || '{}');
     if (td.teams && drafter) {
       const teamIdx = S.draftOrder.indexOf(type==='me' ? S.myName : drafter);
       if (teamIdx >= 0 && td.teams[teamIdx]) {
         const emptySlot = td.teams[teamIdx].golfers.findIndex(x => !x);
         if (emptySlot >= 0) { td.teams[teamIdx].golfers[emptySlot] = g.name; }
       }
-      localStorage.setItem('masters-pool-2026', JSON.stringify(td));
+      localStorage.setItem(`masters-pool-${YEAR}`, JSON.stringify(td));
     }
   } catch(e) {}
-  S.pick++; saveDraftMeta(); render();
+  const who = type==='me' ? (S.myName||'ME') : (drafter||'OPP');
+  showPickToast(who, g.name);
+  S.pick++; saveDraftMeta(); render(); scrollToNextBest();
+}
+
+function showPickToast(drafter, golferName) {
+  const toast = document.getElementById('pickToast');
+  toast.textContent = `${drafter} drafted ${golferName}`;
+  toast.classList.add('show');
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+function scrollToNextBest() {
+  requestAnimationFrame(() => {
+    const first = document.querySelector('#golferBoard .g:not(.mine):not(.out)');
+    if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
 }
 
 function removeRoster(i) {
@@ -1657,6 +1821,88 @@ document.getElementById('searchBox').addEventListener('input',e=>{S.search=e.tar
 document.getElementById('draftSize').addEventListener('input',e=>{const v=parseInt(e.target.value);if(!v||v<2)return;S.size=v;if(S.slot>v)S.slot=1;render();});
 document.getElementById('mySlot').addEventListener('change',e=>{S.slot=parseInt(e.target.value);render();});
 document.addEventListener('keydown',e=>{if(e.key==='z'&&e.ctrlKey&&isOwner()){e.preventDefault();undoLastPick();}if(e.key==='Escape')closeModal();});
+
+// === Draft Recap ===
+function isDraftComplete() {
+  return S.draftOrder.length >= 2 && S.history.length >= S.draftOrder.length * 3;
+}
+
+function buildTeamRosters() {
+  // Group picks by drafter
+  const teams = {};
+  S.draftOrder.forEach(name => { teams[name] = []; });
+  S.history.forEach(h => {
+    const drafter = h.drafter || (h.type === 'me' ? S.myName : 'OPP');
+    if (!teams[drafter]) teams[drafter] = [];
+    teams[drafter].push(h.g);
+  });
+  return teams;
+}
+
+function showRecap() {
+  const teams = buildTeamRosters();
+  const surv = survival();
+
+  let summaryText = `Masters ${YEAR} Draft — ${S.draftOrder.length} teams, ${S.history.length} picks`;
+  if (S.myName) summaryText += `\nYour team: ${S.myRoster.filter(g=>g).map(g=>g.name).join(', ')}`;
+  summaryText += `\nCut survival: ${(surv*100).toFixed(0)}%`;
+
+  document.getElementById('recapSummary').textContent = summaryText;
+
+  let html = '';
+  S.draftOrder.forEach(name => {
+    const roster = teams[name] || [];
+    const isMe = name === S.myName;
+    html += `<div class="recap-card ${isMe ? 'is-me' : ''}">
+      <div class="recap-team-name">${esc(name)}${isMe ? ' (YOU)' : ''}</div>
+      ${roster.map(g => `<div class="recap-golfer">
+        <span>${g.name}</span>
+        <span class="recap-stats">MC ${(g.mcPct*100).toFixed(0)}% / ${fmt(g.projScore)}</span>
+      </div>`).join('')}
+    </div>`;
+  });
+
+  document.getElementById('recapTeams').innerHTML = html;
+  document.getElementById('recapOverlay').classList.add('show');
+}
+
+function copyRecap() {
+  const teams = buildTeamRosters();
+  let text = `Masters ${YEAR} Draft Recap\n${'='.repeat(30)}\n\n`;
+  S.draftOrder.forEach(name => {
+    const roster = teams[name] || [];
+    text += `${name}:\n`;
+    roster.forEach((g, i) => { text += `  ${i+1}. ${g.name} (MC ${(g.mcPct*100).toFixed(0)}%, Proj ${fmt(g.projScore)})\n`; });
+    text += '\n';
+  });
+  if (POOL_ID) text += `Join: ${window.location.origin}${window.location.pathname}?pool=${POOL_ID}\n`;
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text);
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+  const btn = document.querySelector('#recapOverlay .m-btn.me');
+  btn.textContent = 'COPIED!';
+  setTimeout(() => btn.textContent = 'Copy Recap to Clipboard', 1500);
+}
+
+// Check for complete draft after each render
+const _origRender = render;
+render = function() {
+  _origRender();
+  if (isDraftComplete() && !render._shownRecap) {
+    render._shownRecap = true;
+    setTimeout(showRecap, 500);
+  }
+};
 
 // initState() handles render() and setup prompt
 </script>
