@@ -1109,6 +1109,47 @@
     opacity: 1;
   }
 
+  .bet-toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    background: linear-gradient(135deg, #1a1400, #2a2000);
+    color: var(--champagne);
+    border: 1px solid var(--champagne);
+    padding: 14px 20px;
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    z-index: 10001;
+    opacity: 0;
+    transition: transform 0.4s ease, opacity 0.4s ease;
+    max-width: 90vw;
+    text-align: center;
+    box-shadow: 0 4px 30px rgba(201,168,76,0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+  }
+  .bet-toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+  .bet-toast-btn {
+    background: var(--champagne);
+    color: #000;
+    border: none;
+    padding: 5px 14px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 1px;
+  }
+
   /* Tournament Leaderboard */
   .tourn-row {
     display: flex;
@@ -1515,6 +1556,7 @@
 <body>
 
 <div class="heckle-toast" id="heckleToast"></div>
+<div class="bet-toast" id="betToast"></div>
 
 <!-- CLAIM OVERLAY -->
 <div class="overlay" id="claimOverlay">
@@ -3620,6 +3662,18 @@ function setBetFilter(f) {
   renderBets();
 }
 
+function showBetToast(text) {
+  const toast = document.getElementById('betToast');
+  toast.innerHTML = `<div>${text}</div><button class="bet-toast-btn" onclick="switchMode('cheese');closeBetToast()">GO TO SIDE CHEESE</button>`;
+  toast.classList.add('show');
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => toast.classList.remove('show'), 8000);
+}
+
+function closeBetToast() {
+  document.getElementById('betToast').classList.remove('show');
+}
+
 function updateBetBadge() {
   const claimed = getClaimedTeam();
   const pending = bets.filter(b => b.status === 'pending' && b.to === claimed).length;
@@ -3780,12 +3834,31 @@ function subscribeToTracker() {
       table: 'draft_pools',
       filter: `pool_id=eq.${POOL_ID}`,
     }, async () => {
+      const prevBetIds = new Set(bets.map(b => b.id));
+      const prevBetStatuses = {};
+      bets.forEach(b => { prevBetStatuses[b.id] = b.status; });
+
       await loadPoolFromCloud();
       await loadBetsFromCloud();
       await loadHecklesFromCloud();
       renderSetup();
       if (document.getElementById('liveView').classList.contains('active')) { renderLive(); renderHeckleFeed(); }
       if (document.getElementById('cheeseView').classList.contains('active')) renderBets();
+      updateBetBadge();
+
+      // Detect new or changed bets and notify
+      const claimed = getClaimedTeam();
+      if (claimed) {
+        bets.forEach(b => {
+          if (!prevBetIds.has(b.id) && b.status === 'pending' && b.to === claimed) {
+            showBetToast(`${b.from} challenged you: "${b.desc}" — ${b.stakes}`);
+          } else if (prevBetStatuses[b.id] === 'pending' && b.status === 'accepted' && b.from === claimed) {
+            showBetToast(`${b.to} accepted your bet: "${b.desc}"`);
+          } else if (prevBetStatuses[b.id] === 'pending' && b.status === 'declined' && b.from === claimed) {
+            showBetToast(`${b.to} declined your bet: "${b.desc}"`);
+          }
+        });
+      }
     })
     .subscribe();
 }
