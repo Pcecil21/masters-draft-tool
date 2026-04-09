@@ -1752,39 +1752,40 @@ function renderSweatMeter() {
       return { name: g.name, pct: 100, level: 'cooked', label: 'COOKED' };
     }
 
+    // Haven't teed off yet — no sweat, just vibes
+    if (g.score === null || g.score === undefined) {
+      return { name: g.name, pct: 0, level: 'chill', label: 'ON DECK' };
+    }
+
     let sweat = 0;
 
     // Base sweat from score — higher score = more sweat
-    if (g.score !== null) {
-      if (g.score <= -4) sweat = 5;
-      else if (g.score <= -2) sweat = 15;
-      else if (g.score <= 0) sweat = 25;
-      else if (g.score <= 2) sweat = 45;
-      else if (g.score <= 4) sweat = 65;
-      else if (g.score <= 6) sweat = 80;
-      else sweat = 90;
-    } else {
-      sweat = 30; // No score yet, mild uncertainty
-    }
+    if (g.score <= -4) sweat = 5;
+    else if (g.score <= -2) sweat = 12;
+    else if (g.score <= 0) sweat = 20;
+    else if (g.score <= 2) sweat = 40;
+    else if (g.score <= 4) sweat = 60;
+    else if (g.score <= 6) sweat = 75;
+    else sweat = 88;
 
     // Adjust by make-cut odds — worse odds = more sweat
     if (g.info) {
       const mc = g.info.mcOdds;
-      if (mc <= -800) sweat -= 10;       // heavy favorite to make cut
-      else if (mc <= -400) sweat -= 5;
+      if (mc <= -800) sweat -= 8;        // heavy favorite to make cut
+      else if (mc <= -400) sweat -= 4;
       else if (mc <= -200) sweat += 0;
-      else if (mc <= 0) sweat += 10;
-      else if (mc <= 200) sweat += 15;
-      else sweat += 20;                  // longshot to make cut
+      else if (mc <= 0) sweat += 5;
+      else if (mc <= 200) sweat += 8;
+      else sweat += 12;                  // longshot to make cut
     }
 
     // Adjust by position — lower position = less sweat
     if (g.position) {
-      if (g.position <= 10) sweat -= 10;
-      else if (g.position <= 20) sweat -= 5;
+      if (g.position <= 10) sweat -= 8;
+      else if (g.position <= 20) sweat -= 4;
       else if (g.position <= 40) sweat += 0;
-      else if (g.position <= 55) sweat += 10;
-      else sweat += 15;
+      else if (g.position <= 55) sweat += 5;
+      else sweat += 10;
     }
 
     sweat = Math.max(0, Math.min(100, sweat));
@@ -1800,9 +1801,11 @@ function renderSweatMeter() {
   });
 
   // Team verdict
+  const allOnDeck = rows.every(r => r.label === 'ON DECK');
   const avgSweat = Math.round(rows.reduce((s, r) => s + r.pct, 0) / rows.length);
   let verdict;
-  if (avgSweat <= 20) verdict = "Your squad is <strong>cruising</strong>. Sit back and enjoy the azaleas.";
+  if (allOnDeck) verdict = "Your guys haven't teed off yet. <strong>Grab a pimento cheese sandwich and relax.</strong>";
+  else if (avgSweat <= 20) verdict = "Your squad is <strong>cruising</strong>. Sit back and enjoy the azaleas.";
   else if (avgSweat <= 35) verdict = "Looking <strong>solid</strong>. A couple birdies and you're golden.";
   else if (avgSweat <= 50) verdict = "It's <strong>getting interesting</strong>. Might want to put the beer down.";
   else if (avgSweat <= 65) verdict = "You're <strong>on the bubble</strong>. Time to start stress-eating.";
