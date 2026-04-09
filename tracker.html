@@ -2568,7 +2568,7 @@ function closeH2H() {
 let prevStandings = {}; // teamName -> position
 
 // ===== Money Calculator =====
-let poolBuyIn = parseInt(localStorage.getItem('masters-buyin') || '0');
+let poolBuyIn = parseInt(localStorage.getItem('masters-buyin') || '100');
 
 function saveBuyIn(val) {
   poolBuyIn = parseInt(val) || 0;
@@ -2607,8 +2607,8 @@ function renderMoneyCalc() {
     return a.teamScore - b.teamScore;
   });
 
-  // Payout: 1st 60%, 2nd 25%, 3rd 10%, last place gets name on toilet trophy
-  const payouts = [0.60, 0.25, 0.10];
+  // Payout: 1st 90%, 2nd 10%
+  const payouts = [0.90, 0.10];
 
   let html = `<div class="money-card">
     <div class="money-title">MONEY ON THE LINE</div>
