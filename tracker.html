@@ -4004,11 +4004,7 @@
 
           // Count active golfers (not cut, and actually started playing)
           const active = golferData.filter(
-            (g) =>
-              g.status === "active" &&
-              g.score !== null &&
-              g.thru !== null &&
-              g.thru !== undefined,
+            (g) => g.status === "active" && g.score !== null,
           );
           const cutCount = golferData.filter((g) => g.status === "cut").length;
           const alive = 3 - cutCount >= 2; // Need 2+ to make cut
