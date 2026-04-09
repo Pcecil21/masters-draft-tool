@@ -1421,11 +1421,12 @@ function fmtScore(s) {
 
 function updateScore(golfer, val) {
   if (!pool.scores) pool.scores = {};
+  const existing = pool.scores[golfer] || {};
   const parsed = parseScore(val);
   if (parsed === 'CUT') {
-    pool.scores[golfer] = { score: null, status: 'cut' };
+    pool.scores[golfer] = { ...existing, score: null, status: 'cut' };
   } else {
-    pool.scores[golfer] = { score: parsed, status: 'active' };
+    pool.scores[golfer] = { ...existing, score: parsed, status: 'active' };
   }
   saveData();
   renderLive();
@@ -1469,8 +1470,8 @@ function renderGolferDetail(g) {
 
   // Live tournament data
   let liveHtml = '';
-  if (g.position || g.thru !== undefined && g.thru !== null) {
-    const posText = g.position ? `T${g.position}` : '--';
+  if (g.position || (g.thru !== undefined && g.thru !== null)) {
+    const posText = g.position ? `${g.position}` : '--';
     const thruText = g.thru === 'F' ? 'F' : g.thru ? `Thru ${g.thru}` : '--';
     const todayText = g.today || '--';
     liveHtml = `<div class="gd-live">
@@ -1487,7 +1488,8 @@ function renderGolferDetail(g) {
       if (!rd.score && rd.holesPlayed === 0) return '';
       const label = `R${rd.round}`;
       const val = rd.score || '--';
-      const rdClass = val.startsWith && val.startsWith('-') ? 'under' : val === 'E' ? 'even' : '';
+      const valStr = String(val);
+      const rdClass = valStr.startsWith('-') ? 'under' : valStr === 'E' ? 'even' : '';
       return `<span class="gd-round ${rdClass}"><span class="gd-stat-label">${label}</span> <span class="gd-stat-val">${val}</span></span>`;
     }).filter(Boolean).join('');
     if (roundChips) roundsHtml = `<div class="gd-rounds">${roundChips}</div>`;
