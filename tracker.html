@@ -4414,6 +4414,13 @@ async function init() {
   if ((!claimed || pool.meIndex < 0) && hasNamedTeams) {
     setTimeout(showClaimOverlay, 400);
   }
+
+  // Auto-fetch scores and start 5-min refresh
+  setTimeout(() => {
+    fetchESPN();
+    document.getElementById('autoRefresh').checked = true;
+    autoRefreshTimer = setInterval(fetchESPN, 5 * 60 * 1000);
+  }, 800);
 }
 init();
 </script>
