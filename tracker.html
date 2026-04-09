@@ -2567,8 +2567,120 @@ function closeH2H() {
 
 let prevStandings = {}; // teamName -> position
 
-// ===== Money Calculator =====
+// ===== Money Calculator (Probability Model) =====
 const POOL_BUY_IN = 100;
+
+// Convert American odds to implied probability
+function oddsToProb(odds) {
+  if (odds < 0) return (-odds) / (-odds + 100);
+  return 100 / (odds + 100);
+}
+
+// Estimate a golfer's expected remaining score and std dev
+// based on current score, position, and pre-tournament odds
+function golferProjection(g, info) {
+  // If cut/wd, they're done — fixed bad score
+  if (g.status === 'cut' || g.status === 'wd') return { mean: 8, std: 0 };
+
+  // Estimate rounds remaining (4 total, ~18 holes per round)
+  const holesPlayed = g.thru && g.thru !== 'F' ? g.thru : (g.rounds || []).reduce((s, r) => s + (r.holesPlayed || 0), 0);
+  const totalHoles = 72;
+  const pctDone = Math.min(holesPlayed / totalHoles, 1);
+  const pctLeft = 1 - pctDone;
+
+  if (pctDone === 0 && info) {
+    // Haven't started — project entirely from odds
+    // Convert top20 odds to expected score: favorite ~-6, longshot ~+4
+    const t20prob = oddsToProb(info.top20);
+    const mean = -8 * t20prob + 6 * (1 - t20prob); // rough mapping
+    const std = 5 + (1 - t20prob) * 3; // more uncertainty for longshots
+    return { mean, std };
+  }
+
+  if (g.score !== null) {
+    // Have a score — project remaining based on current pace + regression to odds
+    const currentPace = g.score; // score relative to par so far
+
+    // Expected final score = blend of current pace and pre-tournament projection
+    let priorMean = 2; // default: slightly over par
+    let priorStd = 5;
+    if (info) {
+      const t20prob = oddsToProb(info.top20);
+      priorMean = -8 * t20prob + 6 * (1 - t20prob);
+      priorStd = 4 + (1 - t20prob) * 3;
+    }
+
+    // Bayesian-ish blend: weight current score more as tournament progresses
+    const mean = currentPace * pctDone + priorMean * pctLeft;
+    // Uncertainty shrinks as more holes played
+    const std = priorStd * Math.sqrt(pctLeft) * 0.8;
+    return { mean, std };
+  }
+
+  // No score, no odds — generic projection
+  return { mean: 2, std: 6 };
+}
+
+// Simple normal CDF approximation
+function normCDF(x) {
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const d = 0.3989422804 * Math.exp(-x * x / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.8212560 + t * 1.3302744))));
+  return x > 0 ? 1 - p : p;
+}
+
+// P(team A beats team B) given their projected score distributions
+function pWin(meanA, stdA, meanB, stdB) {
+  // P(A < B) where lower is better
+  const diffMean = meanB - meanA; // positive = A is better
+  const diffStd = Math.sqrt(stdA * stdA + stdB * stdB) || 0.01;
+  return normCDF(diffMean / diffStd);
+}
+
+// Monte Carlo-lite: estimate P(1st) and P(2nd) for each team
+function calcTeamProbabilities(teams) {
+  const n = teams.length;
+  const SIMS = 5000;
+  const wins = new Array(n).fill(0);
+  const seconds = new Array(n).fill(0);
+
+  for (let s = 0; s < SIMS; s++) {
+    // Sample a final score for each team
+    const scores = teams.map(t => {
+      // Team score = best 2 of 3 golfers
+      const gScores = t.projections.map(p => {
+        // Box-Muller transform for normal random
+        const u1 = Math.random();
+        const u2 = Math.random();
+        const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+        return p.mean + p.std * z;
+      });
+      // Best 2 of 3
+      gScores.sort((a, b) => a - b);
+      return gScores[0] + (gScores[1] !== undefined ? gScores[1] : 0);
+    });
+
+    // Find 1st and 2nd
+    let bestIdx = 0, secondIdx = 1;
+    if (scores[1] < scores[0]) { bestIdx = 1; secondIdx = 0; }
+    for (let i = 2; i < n; i++) {
+      if (scores[i] < scores[bestIdx]) {
+        secondIdx = bestIdx;
+        bestIdx = i;
+      } else if (scores[i] < scores[secondIdx]) {
+        secondIdx = i;
+      }
+    }
+    wins[bestIdx]++;
+    seconds[secondIdx]++;
+  }
+
+  return teams.map((t, i) => ({
+    ...t,
+    pWin: wins[i] / SIMS,
+    pSecond: seconds[i] / SIMS,
+  }));
+}
 
 function renderMoneyCalc() {
   const container = document.getElementById('moneyCalc');
@@ -2577,13 +2689,20 @@ function renderMoneyCalc() {
   if (namedTeams.length < 2) { container.style.display = 'none'; return; }
 
   const totalPot = POOL_BUY_IN * namedTeams.length;
+  const firstPrize = Math.round(totalPot * 0.90);
+  const secondPrize = Math.round(totalPot * 0.10);
 
-  // Calculate standings for payout
-  const ranked = namedTeams.map(t => {
+  // Build projections for each team
+  const teams = namedTeams.map(t => {
     const golfers = t.golfers.filter(g => g).map(name => {
       const data = pool.scores[name] || {};
-      return { name, ...data };
+      const info = GOLFERS.find(x => x.name === name);
+      return { name, ...data, info };
     });
+
+    const projections = golfers.map(g => golferProjection(g, g.info));
+
+    // Current score for display
     const active = golfers.filter(g => g.status !== 'cut' && g.status !== 'wd' && g.score !== null);
     const cutCount = golfers.filter(g => g.status === 'cut' || g.status === 'wd').length;
     let teamScore = null;
@@ -2593,48 +2712,45 @@ function renderMoneyCalc() {
     } else if (active.length === 1 && cutCount === 0) {
       teamScore = active[0].score;
     }
-    return { name: t.name, teamScore, isMe: t.name === claimed };
-  }).sort((a, b) => {
-    if (a.teamScore === null && b.teamScore === null) return 0;
-    if (a.teamScore === null) return 1;
-    if (b.teamScore === null) return -1;
-    return a.teamScore - b.teamScore;
+
+    return { name: t.name, teamScore, projections, isMe: t.name === claimed };
   });
 
-  // Payout: 1st 90%, 2nd 10%
-  const payouts = [0.90, 0.10];
+  // Run simulation
+  const results = calcTeamProbabilities(teams);
 
-  const first = Math.round(totalPot * payouts[0]);
-  const second = Math.round(totalPot * payouts[1]);
+  // Calculate EV for each team
+  results.forEach(t => {
+    t.ev = t.pWin * firstPrize + t.pSecond * secondPrize - POOL_BUY_IN;
+  });
+
+  // Sort by EV descending
+  results.sort((a, b) => b.ev - a.ev);
 
   let html = `<div class="money-card">
     <div class="money-title">MONEY ON THE LINE</div>
     <div style="font-size:11px;color:var(--text-dim);font-family:var(--mono);margin-bottom:10px;">
-      $${POOL_BUY_IN} x ${namedTeams.length} = <strong style="color:var(--champagne);">$${totalPot} pot</strong> &nbsp;|&nbsp; 1st: $${first} &nbsp;|&nbsp; 2nd: $${second}
+      $${POOL_BUY_IN} x ${namedTeams.length} = <strong style="color:var(--champagne);">$${totalPot} pot</strong> &nbsp;|&nbsp; 1st: $${firstPrize} &nbsp;|&nbsp; 2nd: $${secondPrize}
+    </div>
+    <div style="display:flex;font-size:9px;color:var(--text-dim);font-family:var(--mono);padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:4px;">
+      <span style="flex:1;">TEAM</span>
+      <span style="width:42px;text-align:right;">WIN %</span>
+      <span style="width:42px;text-align:right;">2ND %</span>
+      <span style="width:55px;text-align:right;">EXP VAL</span>
     </div>`;
 
-  // Show 1st, 2nd, and your team if not already shown
-  const meIdx = ranked.findIndex(t => t.isMe);
-  const showRows = [
-    { idx: 0, label: '1st', amt: first - POOL_BUY_IN },
-    { idx: 1, label: '2nd', amt: second - POOL_BUY_IN },
-  ];
-
-  // Add "you" if not 1st or 2nd
-  if (meIdx >= 2) {
-    showRows.push({ idx: meIdx, label: `${meIdx + 1}${meIdx === 2 ? 'rd' : 'th'}`, amt: -POOL_BUY_IN });
-  }
-
-  showRows.forEach(({ idx, label, amt }) => {
-    const t = ranked[idx];
-    if (!t) return;
-    const amtText = amt >= 0 ? `+$${amt}` : `-$${Math.abs(amt)}`;
-    const amtClass = amt > 0 ? 'winning' : amt === 0 ? 'even' : 'losing';
+  results.forEach(t => {
+    const winPct = (t.pWin * 100).toFixed(1);
+    const secPct = (t.pSecond * 100).toFixed(1);
+    const evText = t.ev >= 0 ? `+$${Math.round(t.ev)}` : `-$${Math.abs(Math.round(t.ev))}`;
+    const evClass = t.ev > 0 ? 'winning' : t.ev === 0 ? 'even' : 'losing';
+    const winBar = Math.max(1, t.pWin * 100);
 
     html += `<div class="money-row ${t.isMe ? 'money-me' : ''}">
-      <span class="money-pos">${label}</span>
       <span class="money-name">${esc(t.name)} ${t.isMe ? '<span style="color:var(--champagne);font-size:10px;">(YOU)</span>' : ''}</span>
-      <span class="money-amt ${amtClass}">${amtText}</span>
+      <span style="width:42px;text-align:right;font-family:var(--mono);font-size:11px;color:${t.pWin > 0.15 ? '#4ADE80' : 'var(--text-dim)'}">${winPct}%</span>
+      <span style="width:42px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text-dim)">${secPct}%</span>
+      <span class="money-amt ${evClass}" style="width:55px;">${evText}</span>
     </div>`;
   });
 
