@@ -2582,43 +2582,41 @@ function golferProjection(g, info) {
   // If cut/wd, they're done — fixed bad score
   if (g.status === 'cut' || g.status === 'wd') return { mean: 8, std: 0 };
 
-  // Estimate rounds remaining (4 total, ~18 holes per round)
+  // Determine how much they've actually played
   const holesPlayed = g.thru && g.thru !== 'F' ? g.thru : (g.rounds || []).reduce((s, r) => s + (r.holesPlayed || 0), 0);
   const totalHoles = 72;
   const pctDone = Math.min(holesPlayed / totalHoles, 1);
   const pctLeft = 1 - pctDone;
+  const hasPlayed = pctDone > 0 && g.score !== null;
 
-  if (pctDone === 0 && info) {
-    // Haven't started — project entirely from odds
-    // Convert top20 odds to expected score: favorite ~-6, longshot ~+4
+  // Small prior edge from odds — slight, not dominant
+  // Favorites get a tiny nudge, longshots a tiny penalty
+  let oddsNudge = 0;
+  if (info) {
     const t20prob = oddsToProb(info.top20);
-    const mean = -8 * t20prob + 6 * (1 - t20prob); // rough mapping
-    const std = 5 + (1 - t20prob) * 3; // more uncertainty for longshots
-    return { mean, std };
+    // Range: favorite (t20prob~0.8) gets -1, longshot (t20prob~0.2) gets +1
+    oddsNudge = -2 * (t20prob - 0.5); // range ~ -1 to +1
   }
 
-  if (g.score !== null) {
-    // Have a score — project remaining based on current pace + regression to odds
-    const currentPace = g.score; // score relative to par so far
-
-    // Expected final score = blend of current pace and pre-tournament projection
-    let priorMean = 2; // default: slightly over par
-    let priorStd = 5;
-    if (info) {
-      const t20prob = oddsToProb(info.top20);
-      priorMean = -8 * t20prob + 6 * (1 - t20prob);
-      priorStd = 4 + (1 - t20prob) * 3;
-    }
-
-    // Bayesian-ish blend: weight current score more as tournament progresses
-    const mean = currentPace * pctDone + priorMean * pctLeft;
-    // Uncertainty shrinks as more holes played
-    const std = priorStd * Math.sqrt(pctLeft) * 0.8;
-    return { mean, std };
+  if (!hasPlayed) {
+    // Haven't teed off — everyone gets roughly the same projection
+    // Small nudge from odds but high uncertainty means it barely matters
+    return { mean: 1 + oddsNudge, std: 7 };
   }
 
-  // No score, no odds — generic projection
-  return { mean: 2, std: 6 };
+  // Have actual scores — this is what matters
+  const currentScore = g.score;
+
+  // Project final score: current score is the anchor
+  // Regress slightly toward field average as tournament progresses
+  // Early: more regression. Late: trust the score.
+  const regressionTarget = 1 + oddsNudge; // slight regression toward slightly over par
+  const mean = currentScore * (0.6 + 0.4 * pctDone) + regressionTarget * (0.4 - 0.4 * pctDone);
+
+  // Uncertainty: high early, shrinks as holes complete
+  const std = Math.max(1, 6 * Math.sqrt(pctLeft));
+
+  return { mean, std };
 }
 
 // Simple normal CDF approximation
