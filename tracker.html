@@ -405,6 +405,13 @@
     font-weight: 600;
     font-size: 11px;
   }
+  .pool-g .g-thru {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    opacity: 0.7;
+    margin-left: 2px;
+  }
 
   .pool-score {
     font-family: 'Bebas Neue', sans-serif;
@@ -479,6 +486,68 @@
   }
   .gd-stat-label { color: var(--text-dim); }
   .gd-stat-val { color: var(--text); font-weight: 600; }
+
+  .gd-live {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .gd-live-item {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    font-size: 12px;
+  }
+
+  .gd-rounds {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .gd-round {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    font-size: 11px;
+    font-family: var(--mono);
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--border);
+  }
+  .gd-round.under .gd-stat-val { color: #4ADE80; }
+  .gd-round.even .gd-stat-val { color: var(--champagne); }
+
+  .gd-holes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px;
+    margin-bottom: 10px;
+    font-size: 11px;
+  }
+  .gd-holes .gd-stat-label { margin-right: 4px; }
+  .hole-score {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 10px;
+    border: 1.5px solid transparent;
+  }
+  .hole-score.eagle { background: #FFD700; color: #000; border-color: #FFD700; }
+  .hole-score.birdie { background: rgba(74,222,128,0.2); color: #4ADE80; border-color: #4ADE80; }
+  .hole-score.par-hole { background: rgba(255,255,255,0.05); color: var(--text-dim); border-color: var(--border); }
+  .hole-score.bogey { background: rgba(232,84,84,0.15); color: var(--red); border-color: rgba(232,84,84,0.4); }
+  .hole-score.dbl { background: rgba(232,84,84,0.3); color: #ff6b6b; border-color: var(--red); }
 
   .gd-history {
     margin-top: 8px;
@@ -1393,13 +1462,55 @@ function renderGolferDetail(g) {
   if (!g.name || g.name === '(empty)') return '';
   const info = GOLFERS.find(x => x.name === g.name);
   const isCut = g.status === 'cut';
-  const scoreText = isCut ? 'CUT' : (g.score !== null ? fmtScore(g.score) : '--');
-  const scoreClass = isCut ? 'cut-badge' : (g.score === null ? '' : g.score < 0 ? 'under' : g.score === 0 ? 'even' : 'over');
+  const isWD = g.status === 'wd';
+  const scoreText = isCut ? 'CUT' : isWD ? 'WD' : (g.score !== null ? fmtScore(g.score) : '--');
+  const scoreClass = (isCut || isWD) ? 'cut-badge' : (g.score === null ? '' : g.score < 0 ? 'under' : g.score === 0 ? 'even' : 'over');
   const tierNames = ['', 'Elite', 'Contender', 'Solid', 'Mid-Tier', 'Sleeper', 'Longshot', 'Deep Cut'];
 
+  // Live tournament data
+  let liveHtml = '';
+  if (g.position || g.thru !== undefined && g.thru !== null) {
+    const posText = g.position ? `T${g.position}` : '--';
+    const thruText = g.thru === 'F' ? 'F' : g.thru ? `Thru ${g.thru}` : '--';
+    const todayText = g.today || '--';
+    liveHtml = `<div class="gd-live">
+      <span class="gd-live-item"><span class="gd-stat-label">Pos</span> <span class="gd-stat-val">${posText}</span></span>
+      <span class="gd-live-item"><span class="gd-stat-label">Today</span> <span class="gd-stat-val">${todayText}</span></span>
+      <span class="gd-live-item"><span class="gd-stat-label">${g.thru === 'F' ? 'Status' : 'Thru'}</span> <span class="gd-stat-val">${thruText}</span></span>
+    </div>`;
+  }
+
+  // Round-by-round scores
+  let roundsHtml = '';
+  if (g.rounds && g.rounds.length) {
+    const roundChips = g.rounds.map(rd => {
+      if (!rd.score && rd.holesPlayed === 0) return '';
+      const label = `R${rd.round}`;
+      const val = rd.score || '--';
+      const rdClass = val.startsWith && val.startsWith('-') ? 'under' : val === 'E' ? 'even' : '';
+      return `<span class="gd-round ${rdClass}"><span class="gd-stat-label">${label}</span> <span class="gd-stat-val">${val}</span></span>`;
+    }).filter(Boolean).join('');
+    if (roundChips) roundsHtml = `<div class="gd-rounds">${roundChips}</div>`;
+  }
+
+  // Hole-by-hole for current round
+  let holesHtml = '';
+  if (g.rounds && g.rounds.length) {
+    const currentRd = g.rounds.find(rd => rd.holesPlayed > 0 && rd.holesPlayed < 18) || g.rounds.filter(rd => rd.holesPlayed > 0).pop();
+    if (currentRd && currentRd.holes && currentRd.holes.length) {
+      const par = [4,5,4,3,4,3,4,5,4,4,4,3,5,4,5,3,4,4]; // Augusta par
+      holesHtml = `<div class="gd-holes"><span class="gd-stat-label">R${currentRd.round} holes:</span> ${currentRd.holes.map(h => {
+        const p = par[h.hole - 1] || 4;
+        const diff = h.strokes - p;
+        const cls = diff < -1 ? 'eagle' : diff === -1 ? 'birdie' : diff === 0 ? 'par-hole' : diff === 1 ? 'bogey' : 'dbl';
+        return `<span class="hole-score ${cls}" title="Hole ${h.hole} (Par ${p})">${h.strokes}</span>`;
+      }).join('')}</div>`;
+    }
+  }
+
+  let tierHtml = '';
   let statsHtml = '';
   let historyHtml = '';
-  let tierHtml = '';
 
   if (info) {
     tierHtml = `<span class="gd-tier">T${info.tier} — ${tierNames[info.tier] || ''}</span>`;
@@ -1412,14 +1523,16 @@ function renderGolferDetail(g) {
       <div class="gd-stat"><span class="gd-stat-label">ADP</span><span class="gd-stat-val">#${info.adp}</span></div>
     </div>`;
     historyHtml = `<div class="gd-history"><strong>Augusta:</strong> ${esc(info.augustaHistory)}</div>`;
-    if (info.notes) historyHtml += `<div class="gd-history"><strong>Notes:</strong> ${esc(info.notes)}</div>`;
   }
 
-  return `<div class="golfer-detail ${isCut ? 'cut-detail' : ''}">
+  return `<div class="golfer-detail ${isCut ? 'cut-detail' : ''} ${isWD ? 'cut-detail' : ''}">
     <div class="gd-header">
       <span><span class="gd-name">${esc(g.name)}</span>${tierHtml}</span>
       <span class="gd-score-badge ${scoreClass}">${scoreText}</span>
     </div>
+    ${liveHtml}
+    ${roundsHtml}
+    ${holesHtml}
     ${statsHtml}
     ${historyHtml}
   </div>`;
@@ -1490,7 +1603,8 @@ function renderLive() {
             const isScoring = team.scoringGolfers.includes(g.name);
             const cls = isCut ? 'cut' : isScoring ? 'scoring' : '';
             const scoreText = isCut ? 'CUT' : (g.score !== null ? fmtScore(g.score) : '--');
-            return `<span class="pool-g ${cls}">${g.name} <span class="g-score">${scoreText}</span></span>`;
+            const thruText = g.thru ? (g.thru === 'F' ? 'F' : `${g.thru}`) : '';
+            return `<span class="pool-g ${cls}">${g.name} <span class="g-score">${scoreText}</span>${thruText ? `<span class="g-thru">${thruText}</span>` : ''}</span>`;
           }).join('')}
         </div>
         <div class="pool-detail">
@@ -1578,11 +1692,10 @@ async function fetchESPN() {
       const status = c.status?.type?.name || '';
 
       if (status === 'STATUS_CUT' || scoreStr === 'CUT' || scoreStr === 'MC') {
-        pool.scores[poolName] = { score: null, status: 'cut' };
+        pool.scores[poolName] = { score: null, status: 'cut', position: null, rounds: [], thru: null, today: null };
       } else if (status === 'STATUS_WITHDRAWN' || scoreStr === 'WD') {
-        pool.scores[poolName] = { score: null, status: 'cut' };
+        pool.scores[poolName] = { score: null, status: 'wd', position: null, rounds: [], thru: null, today: null };
       } else {
-        // Parse the score relative to par
         let score = null;
         if (scoreStr === 'E' || scoreStr === '0') {
           score = 0;
@@ -1591,22 +1704,40 @@ async function fetchESPN() {
         } else if (typeof c.score === 'number') {
           score = c.score;
         } else {
-          // Try parsing displayValue
           const dv = c.score?.displayValue;
           if (dv === 'E') score = 0;
           else if (dv) score = parseInt(dv) || null;
         }
 
-        // Also check linescores for total relative to par
-        if (score === null && c.linescores) {
-          // Sum up round scores vs par
-          // Actually ESPN score field should have the total
+        // Extract round-by-round and hole data
+        const rounds = [];
+        let thru = null;
+        let today = null;
+        if (c.linescores) {
+          c.linescores.forEach((rd, ri) => {
+            const holesPlayed = rd.linescores ? rd.linescores.length : 0;
+            const roundScore = rd.displayValue || null;
+            const holes = (rd.linescores || []).map(h => ({
+              hole: h.period,
+              strokes: parseInt(h.displayValue) || 0,
+              vs: h.scoreType?.displayValue || null,
+            }));
+            rounds.push({ round: ri + 1, score: roundScore, holesPlayed, holes });
+            // Current round = the one with holes > 0 but < 18
+            if (holesPlayed > 0 && holesPlayed < 18) {
+              thru = holesPlayed;
+              today = roundScore;
+            } else if (holesPlayed === 18 && ri === c.linescores.length - 1) {
+              thru = 'F';
+              today = roundScore;
+            }
+          });
         }
 
-        // ESPN sometimes uses 'score' as total strokes, need to check
-        // The displayValue in the competitor.score should be relative to par
+        const position = c.order || null;
+
         if (score !== null) {
-          pool.scores[poolName] = { score, status: 'active' };
+          pool.scores[poolName] = { score, status: 'active', position, rounds, thru, today };
         }
       }
     });
