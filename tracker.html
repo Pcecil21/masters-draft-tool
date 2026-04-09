@@ -2676,6 +2676,10 @@
       const ESPN_URL =
         "https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard";
 
+      const TEAM_COLORS = [
+        "#4ADE80", "#60A5FA", "#F472B6", "#FACC15", "#FB923C",
+        "#A78BFA", "#34D399", "#F87171", "#38BDF8", "#E879F9",
+      ];
       const DEFAULT_POOL = "NQPTL4";
       function getPoolId() {
         return (
@@ -4350,12 +4354,12 @@
           const eventStatus = event.status?.type?.detail || "";
           const competitors = event.competitions?.[0]?.competitors || [];
 
-          // Build pool golfer lookup: golferName -> ownerName
+          // Build pool golfer lookup: golferName -> { owner, teamIndex }
           const poolGolferOwners = {};
-          pool.teams.forEach((t) => {
+          pool.teams.forEach((t, idx) => {
             if (!t.name) return;
             t.golfers.forEach((g) => {
-              if (g) poolGolferOwners[g] = t.name;
+              if (g) poolGolferOwners[g] = { owner: t.name, teamIndex: idx };
             });
           });
 
@@ -4405,7 +4409,7 @@
 
               // Check if in pool
               const poolName = findPoolGolferName(name);
-              const owner = poolName
+              const ownerData = poolName
                 ? poolGolferOwners[poolName] || null
                 : null;
 
@@ -4418,7 +4422,8 @@
                 isWD,
                 rounds,
                 thru,
-                owner,
+                owner: ownerData?.owner || null,
+                teamIndex: ownerData?.teamIndex ?? null,
                 poolName,
               };
             })
@@ -4516,8 +4521,9 @@
             })
             .join("");
 
+          const ownerColor = p.teamIndex !== null ? TEAM_COLORS[p.teamIndex % TEAM_COLORS.length] : "var(--augusta)";
           const ownerTag = p.owner
-            ? `<span class="tourn-owner">(${esc(p.owner)})</span>`
+            ? `<span class="tourn-owner" style="color:${ownerColor}">(${esc(p.owner)})</span>`
             : "";
 
           html += `<div class="tourn-row ${p.owner ? "in-pool" : ""} ${p.isCut || p.isWD ? "cut-row" : ""} ${isCutLine ? "cut-line-row" : ""}">
