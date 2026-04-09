@@ -3961,57 +3961,143 @@ function renderScorecard() {
 let heckles = [];
 let prevScores = {}; // track previous scores to detect drops
 
+// Heckles escalate through 3 tiers as an owner accumulates more disasters
+// Tier 1: Pointed roasts. Tier 2: Getting personal. Tier 3: Scorched earth.
 const HECKLE_LINES = {
   doubleBogey: [
-    "{owner}, {golfer} just doubled. That's fitting because everything about your team is a fucking embarrassment times two.",
-    "Double bogey {golfer}. Hey {owner}, does your wife know you blow money on golf picks this shitty or is this your little secret like that rash you got in Cancun?",
-    "{golfer} with the double. {owner} sitting there with his thumb up his ass wondering where it all went wrong. Buddy, it went wrong at the draft.",
-    "{owner}'s boy {golfer} just doubled. Watching your team is like watching a dog try to fuck a football — painful, confusing, and everyone's laughing except you.",
-    "Double for {golfer}. {owner}, you pick golfers like you pick up women — drunk, desperate, and with zero standards.",
-    "{golfer} just shit his pants on national television with that double. {owner}, this is YOUR guy. Own it you degenerate.",
-    "Double bogey {golfer}. {owner} couldn't pick a winner if you gave him one name and one ballot. Absolute muppet.",
-    "{owner}, {golfer} doubled. Your whole team smells like ass and bad decisions. Which, coincidentally, is also how your car smells.",
-    "{golfer} doubles. {owner}, I've seen sharper instincts from a guy face-down in a Waffle House parking lot at 4 AM.",
-    "Double bogey for {golfer}. {owner}, the only thing worse than your golf picks is your haircut. And your personality. And your fantasy football team. Actually just everything about you.",
-    "{golfer} just doubled. {owner}, at this point I'm convinced you pick names by throwing darts at the leaderboard with your eyes closed and your head up your ass.",
-    "Hey {owner}, {golfer} doubled. Your draft board looked like it was written in crayon by a kid who huffs glue. And honestly? That's an insult to the glue-huffing kid.",
-    "{golfer} with the double. {owner} drafted this clown and then had the balls to talk shit at the draft party. Sit the fuck down.",
-    "Double bogey {golfer}. {owner}, your team is so bad it gave me diarrhea. I'm not joking. I looked at your roster and my body rejected it.",
+    // — TIER 1: Standard roasts —
+    [
+      "{owner}, {golfer} just doubled. Your draft strategy has all the precision of a blindfolded toddler throwing darts.",
+      "Double bogey {golfer}. {owner}, you couldn't pick a winner at a one-horse race.",
+      "{golfer} with the double. {owner}, even your caddy would've told you not to draft this guy. If you could afford a caddy.",
+      "Double for {golfer}. {owner}, I've seen better decisions from people who eat gas station sushi at midnight.",
+      "{golfer} doubles. {owner}, your golf instincts are somewhere between 'Magic 8-Ball' and 'my dog stepped on the remote.'",
+      "Double bogey {golfer}. Hey {owner}, was your draft board just a Cracker Barrel menu with names written in the margins?",
+      "{owner}, {golfer} doubled. Somewhere a village is missing its idiot and that village is your draft room.",
+      "{golfer} with the double. {owner}, you draft golfers the way you drive — reckless, clueless, and everyone around you is in danger.",
+    ],
+    // — TIER 2: Getting personal —
+    [
+      "{owner}, {golfer} doubled AGAIN. Does your wife know you spend money on picks this shitty or is this your little secret like that rash you got in Cancun?",
+      "Another double for {golfer}. {owner}, your whole team smells like ass and bad decisions. Which, coincidentally, is also how your car smells.",
+      "{golfer} doubles. {owner}, you pick golfers like you pick up women — drunk, desperate, and with zero standards.",
+      "Double bogey {golfer}. {owner}, the only thing worse than your golf picks is your haircut. And your personality. And your fantasy football team. Actually just everything about you.",
+      "{owner}'s boy {golfer} just doubled. Watching your team is like watching a dog try to fuck a football — painful, confusing, and everyone's laughing except you.",
+      "{golfer} with the double. {owner} sitting there with his thumb up his ass wondering where it all went wrong. Buddy, it went wrong at the draft. And at birth.",
+      "Double bogey {golfer}. {owner}, your draft board looked like it was written in crayon by a kid who huffs glue. And honestly? That's an insult to the glue-huffing kid.",
+      "{golfer} doubles. {owner}, at this point I'm convinced your mom drank during pregnancy and the damage was highly specific to the part of the brain that picks golfers.",
+    ],
+    // — TIER 3: Scorched earth —
+    [
+      "{owner}, {golfer} doubled. Your team is a war crime. The Hague is reviewing the footage. Interpol has questions.",
+      "ANOTHER double for {golfer}. {owner}, I've seen colonoscopies more pleasant than watching your team play golf. At least those find something useful.",
+      "{golfer} doubles. {owner}, your team is so fucking bad that scientists are studying it as a new form of birth control. Just show someone your roster and they'll never want to reproduce.",
+      "Double bogey {golfer}. {owner}, if stupidity was a felony you'd be on death row for what you've done to this draft pool. Multiple life sentences.",
+      "{golfer} with the double. {owner}, your team is the reason God doesn't talk to us anymore. He saw your roster and said 'I'm done.'",
+      "Double for {golfer}. {owner}, your picks are so bad that Make-A-Wish called — they want to grant you one because watching your team is a terminal illness.",
+      "{golfer} doubled. {owner}, I showed your roster to a therapy dog and it started crying. The DOG needs therapy now. You broke a golden retriever.",
+      "{owner}, {golfer} just doubled. At this point your team isn't a draft strategy, it's a cry for help. Blink twice if you need us to call someone.",
+    ],
   ],
   triplePlus: [
-    "{golfer} just took a {score}. {owner}, what in the absolute fuck is wrong with you? Seriously. Were you dropped? Multiple times?",
-    "A {score} for {golfer}. {owner}, your team is so goddamn bad it could be used as a form of torture at Guantanamo. Guys would talk in minutes.",
-    "{golfer} {score}. {owner}, I hope you kept the receipt for this pick because holy shit you got robbed worse than that time you paid for a lap dance and she just talked to you.",
-    "Oh my fucking god. {golfer} with a {score}. {owner}, your draft strategy is the intellectual equivalent of wiping before you shit.",
-    "{golfer} cards a {score}. Hey {owner}, you know what your team and a portapotty at a music festival have in common? They're both full of shit and nobody wants to be near them.",
-    "{score} for {golfer}. {owner}, you absolute waste of a draft pick. Your team looks like it was assembled by a drunk monkey with a gambling addiction.",
-    "{golfer} with a {score}. {owner}, I'm starting a GoFundMe for your dignity because brother, you cannot afford to lose any more of it.",
-    "A {score} from {golfer}. {owner}, watching your team play is like watching someone try to parallel park for 45 minutes — everyone's cringing and you still end up on the curb.",
-    "{golfer} {score}. {owner}, your team is a hate crime against the sport. Augusta should sue you for emotional distress.",
-    "{golfer} just made a {score} and {owner}'s team is now officially more toxic than his bathroom after Taco Tuesday.",
+    // — TIER 1 —
+    [
+      "{golfer} just took a {score}. {owner}, this is what happens when you draft with your gut instead of your brain. Both are full of shit but at least your brain tries.",
+      "A {score} for {golfer}. {owner}, your team is collapsing faster than a lawn chair under your uncle at Thanksgiving.",
+      "{golfer} cards a {score}. {owner}, you know what? I'm not even mad. I'm impressed. It takes genuine talent to be this wrong about everything.",
+      "{score} for {golfer}. {owner}, your team looks like it was assembled by a drunk monkey with a gambling addiction and a vendetta against you personally.",
+      "{golfer} with a {score}. {owner}, I'm starting a GoFundMe for your dignity because brother, you cannot afford to lose any more of it.",
+    ],
+    // — TIER 2 —
+    [
+      "Oh my fucking god. {golfer} with a {score}. {owner}, your draft strategy is the intellectual equivalent of wiping before you shit.",
+      "{golfer} {score}. {owner}, I hope you kept the receipt for this pick because holy shit you got robbed worse than that time you paid for a lap dance and she just talked to you.",
+      "A {score} from {golfer}. {owner}, your team is so goddamn bad it could be used as a form of torture at Guantanamo. Guys would talk in minutes.",
+      "{golfer} just took a {score}. {owner}, what in the absolute fuck is wrong with you? Seriously. Were you dropped? Multiple times? On concrete?",
+      "{golfer} cards a {score}. Hey {owner}, you know what your team and a portapotty at Bonnaroo have in common? They're both overflowing with shit and everyone avoids them.",
+    ],
+    // — TIER 3 —
+    [
+      "{golfer} just made a {score}. {owner}, your team is now a case study in failure. Harvard Business School is writing a paper called 'What Not To Do: The {owner} Draft.'",
+      "A {score} from {golfer}. {owner}, I called the suicide hotline for your team and they said 'let it die.' Even THEY gave up.",
+      "{golfer} {score}. {owner}, at this point the Geneva Convention should apply to your roster. What you've done here constitutes cruel and unusual punishment — to US, the people who have to WATCH this.",
+      "{golfer} with a {score} and {owner}'s team is now officially more toxic than Chernobyl. They're evacuating a 30-mile radius around your picks. Hazmat suits required.",
+      "{golfer} cards a {score}. {owner}, if your draft picks were a movie, it would be rated NC-17 — not for sex, just for the absolutely obscene things you've done to a perfectly good golf pool.",
+    ],
   ],
   cutMiss: [
-    "{golfer} MISSED THE CUT. {owner}, your boy is going home to jerk off and cry just like you do every Friday night.",
-    "CUT for {golfer}. Hey {owner}, that sound you hear is everyone in the group chat laughing at you. Again. Like always. Because you suck at this.",
-    "{golfer} missed the cut. {owner}, you drafted a guy who couldn't last two days at Augusta. Even your premature ejaculation lasts longer than that.",
-    "MC {golfer}. {owner}, you looked at this field of 90 golfers and found one of the few who couldn't make it to the weekend. That takes a special kind of stupid. YOUR kind of stupid.",
-    "{golfer} going home Friday. {owner}, your team is more fucked than a prom date and twice as disappointing.",
-    "{owner}, {golfer} missed the cut. At this point your team has more guys on the couch than on the course. Which is also where you'll be. Alone. Again.",
-    "CUT. {golfer} is done. {owner}, I've seen better survival instincts from a squirrel on a highway. Your team is roadkill.",
-    "{golfer} MC. {owner}, remember when you said 'trust me on this one'? I want you to think about that sentence. Really sit with it. Because holy shit.",
+    // — TIER 1 —
+    [
+      "{golfer} MISSED THE CUT. {owner}, your boy is heading home while the real golfers play the weekend. Just like you at every party you've ever been to.",
+      "CUT for {golfer}. {owner}, you looked at 90 golfers and found one who couldn't survive two days. That takes a special kind of stupid.",
+      "{golfer} going home Friday. {owner}, your team has more guys on the couch than on the course. Which tracks because so do you.",
+      "MC {golfer}. {owner}, remember when you said 'trust me on this one'? I want you to think about that sentence. Really sit with it.",
+    ],
+    // — TIER 2 —
+    [
+      "{golfer} MISSED THE CUT. {owner}, your boy is going home to jerk off and cry just like you do every Friday night.",
+      "CUT for {golfer}. Hey {owner}, that sound you hear is everyone in the group chat laughing at you. Again. Like always. Because you are cosmically bad at this.",
+      "{golfer} missed the cut. {owner}, you drafted a guy who couldn't last two days at Augusta. Even your premature ejaculation lasts longer than that.",
+      "{golfer} MC. {owner}, your team is more fucked than a prom date and twice as disappointing. At least the prom date had potential.",
+    ],
+    // — TIER 3 —
+    [
+      "{golfer} MISSED THE CUT. {owner}, I've seen better survival instincts from a squirrel playing chicken with a semi on I-95. Your team is roadkill. Flat. Unrecognizable.",
+      "CUT for {golfer}. {owner}, at this point your team is an active crime scene. Yellow tape around your draft card. Detectives are interviewing witnesses. Nobody can explain what happened here.",
+      "{golfer} missed the cut. {owner}, the Make-A-Wish foundation called — they want to grant your team one final wish before it dies. It wished for a different owner.",
+      "MC {golfer}. {owner}, your draft picks have been classified as a biohazard. The CDC is involved. They're tracing the origin of this disaster back to the moment your parents met.",
+    ],
   ],
   waterBall: [
-    "{golfer} just put one in the water. {owner}, your boy has more balls in the water than a pool party at a nursing home.",
-    "Splash! {golfer} finds the water. {owner}, your guy drowns more balls than a urologist. Fitting since your whole team needs medical attention.",
+    // — TIER 1 —
+    [
+      "{golfer} just put one in the water. {owner}, your boy's ball-to-water ratio is starting to look like a baptism.",
+      "Splash! {golfer} finds the water. {owner}, at least he's consistent — consistently making you look like an idiot.",
+    ],
+    // — TIER 2 —
+    [
+      "{golfer} just put one in the water. {owner}, your boy has more balls in the water than a pool party at a nursing home.",
+      "Splash! {golfer} finds the water. {owner}, your guy drowns more balls than a urologist. Fitting since your whole team needs medical attention.",
+    ],
+    // — TIER 3 —
+    [
+      "{golfer} launches another one into the drink. {owner}, at this point Rae's Creek has more of your hopes and dreams than your therapist does.",
+      "Water ball {golfer}. {owner}, they're naming a pond after your team because everything you touch ends up at the bottom of it.",
+    ],
   ],
 };
 
+// Track which template indices have been used per owner to prevent repeats
+const usedHeckleIndices = {}; // key: "owner|category|tier" -> Set of used indices
+
 function pickHeckle(category, owner, golfer, extra) {
-  const lines = HECKLE_LINES[category] || HECKLE_LINES.doubleBogey;
-  const line = lines[Math.floor(Math.random() * lines.length)];
-  return line
+  const tiers = HECKLE_LINES[category] || HECKLE_LINES.doubleBogey;
+
+  // Determine tier based on how many heckles this owner has accumulated
+  const ownerHeckleCount = heckles.filter(h => h.owner === owner).length;
+  const tierIndex = ownerHeckleCount < 3 ? 0 : ownerHeckleCount < 6 ? 1 : 2;
+  const tier = Math.min(tierIndex, tiers.length - 1);
+  const lines = tiers[tier];
+
+  // Track used indices to avoid repeats
+  const trackKey = `${owner}|${category}|${tier}`;
+  if (!usedHeckleIndices[trackKey]) usedHeckleIndices[trackKey] = new Set();
+  const used = usedHeckleIndices[trackKey];
+
+  // Reset if we've exhausted all lines in this tier
+  if (used.size >= lines.length) used.clear();
+
+  // Pick a random unused line
+  let idx;
+  do {
+    idx = Math.floor(Math.random() * lines.length);
+  } while (used.has(idx));
+  used.add(idx);
+
+  return lines[idx]
     .replace(/{owner}/g, owner)
     .replace(/{golfer}/g, golfer)
+    .replace(/{name}/g, owner)
     .replace(/{score}/g, extra || 'snowman');
 }
 
