@@ -2072,9 +2072,10 @@ function renderGolferDetail(g) {
   // Live tournament data
   let liveHtml = '';
   if (g.position || (g.thru !== undefined && g.thru !== null)) {
-    const posText = g.position ? `${g.position}` : '--';
+    const hasStarted = g.thru !== undefined && g.thru !== null;
+    const posText = (g.position && hasStarted) ? `${g.position}` : '--';
     const thruText = g.thru === 'F' ? 'F' : g.thru ? `Thru ${g.thru}` : '--';
-    const todayText = g.today || '--';
+    const todayText = (g.today && g.today !== '-') ? g.today : '--';
     liveHtml = `<div class="gd-live">
       <span class="gd-live-item"><span class="gd-stat-label">Pos</span> <span class="gd-stat-val">${posText}</span></span>
       <span class="gd-live-item"><span class="gd-stat-label">Today</span> <span class="gd-stat-val">${todayText}</span></span>
@@ -2086,7 +2087,7 @@ function renderGolferDetail(g) {
   let roundsHtml = '';
   if (g.rounds && g.rounds.length) {
     const roundChips = g.rounds.map(rd => {
-      if (!rd.score && rd.holesPlayed === 0) return '';
+      if ((!rd.score || rd.score === '-') && rd.holesPlayed === 0) return '';
       const label = `R${rd.round}`;
       const val = rd.score || '--';
       const valStr = String(val);
@@ -2991,8 +2992,8 @@ function renderLive() {
       return { name, ...data };
     });
 
-    // Count active golfers (not cut)
-    const active = golferData.filter(g => g.status === 'active' && g.score !== null);
+    // Count active golfers (not cut, and actually started playing)
+    const active = golferData.filter(g => g.status === 'active' && g.score !== null && (g.thru !== null && g.thru !== undefined));
     const cutCount = golferData.filter(g => g.status === 'cut').length;
     const alive = (3 - cutCount) >= 2; // Need 2+ to make cut
 
@@ -3198,8 +3199,13 @@ async function fetchESPN() {
 
         const position = c.order || null;
 
-        if (score !== null) {
+        // Don't count score if golfer hasn't started (no holes played in any round)
+        const hasStarted = thru !== null || rounds.some(rd => rd.holesPlayed > 0);
+
+        if (score !== null && hasStarted) {
           pool.scores[poolName] = { score, status: 'active', position, rounds, thru, today };
+        } else if (!hasStarted) {
+          pool.scores[poolName] = { score: null, status: 'active', position: null, rounds: [], thru: null, today: null };
         }
       }
     });
