@@ -2613,18 +2613,27 @@ function renderMoneyCalc() {
       $${POOL_BUY_IN} x ${namedTeams.length} = <strong style="color:var(--champagne);">$${totalPot} pot</strong> &nbsp;|&nbsp; 1st: $${first} &nbsp;|&nbsp; 2nd: $${second}
     </div>`;
 
-  ranked.forEach((t, i) => {
-    let amt = -POOL_BUY_IN;
-    if (i < payouts.length) amt = Math.round(totalPot * payouts[i]) - POOL_BUY_IN;
-    const isLast = i === ranked.length - 1;
+  // Show 1st, 2nd, and your team if not already shown
+  const meIdx = ranked.findIndex(t => t.isMe);
+  const showRows = [
+    { idx: 0, label: '1st', amt: first - POOL_BUY_IN },
+    { idx: 1, label: '2nd', amt: second - POOL_BUY_IN },
+  ];
+
+  // Add "you" if not 1st or 2nd
+  if (meIdx >= 2) {
+    showRows.push({ idx: meIdx, label: `${meIdx + 1}${meIdx === 2 ? 'rd' : 'th'}`, amt: -POOL_BUY_IN });
+  }
+
+  showRows.forEach(({ idx, label, amt }) => {
+    const t = ranked[idx];
+    if (!t) return;
     const amtText = amt >= 0 ? `+$${amt}` : `-$${Math.abs(amt)}`;
     const amtClass = amt > 0 ? 'winning' : amt === 0 ? 'even' : 'losing';
-    const lastTag = isLast ? ' <span style="font-size:10px;color:var(--red);">LAST</span>' : '';
-    const posLabel = i < 3 ? ['1st', '2nd', '3rd'][i] : `${i + 1}th`;
 
     html += `<div class="money-row ${t.isMe ? 'money-me' : ''}">
-      <span class="money-pos">${posLabel}</span>
-      <span class="money-name">${esc(t.name)}${lastTag}</span>
+      <span class="money-pos">${label}</span>
+      <span class="money-name">${esc(t.name)} ${t.isMe ? '<span style="color:var(--champagne);font-size:10px;">(YOU)</span>' : ''}</span>
       <span class="money-amt ${amtClass}">${amtText}</span>
     </div>`;
   });
