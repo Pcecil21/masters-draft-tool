@@ -2531,17 +2531,20 @@ function subscribeToTracker() {
 // ===== Init =====
 async function init() {
   try {
-  loadData();
-  loadBets();
-  loadHeckles();
-  if (POOL_ID) {
-    await loadPoolFromCloud();
-    await loadBetsFromCloud();
-    await loadHecklesFromCloud();
-    subscribeToTracker();
-  }
-  // Snapshot current scores so next fetch can detect drops
-  prevScores = JSON.parse(JSON.stringify(pool.scores || {}));
+    loadData();
+    loadBets();
+    loadHeckles();
+    if (POOL_ID) {
+      await loadPoolFromCloud();
+      await loadBetsFromCloud();
+      await loadHecklesFromCloud();
+      subscribeToTracker();
+    }
+  } catch(e) { console.error('Init cloud load error:', e); }
+
+  // These must run even if cloud load fails
+  if (!pool.scores) pool.scores = {};
+  prevScores = JSON.parse(JSON.stringify(pool.scores));
   if (pool.teams.length === 0) {
     for (let i = 0; i < 20; i++) pool.teams.push({ name: '', golfers: ['', '', ''] });
     saveData();
@@ -2555,7 +2558,6 @@ async function init() {
     if (pool.meIndex >= 0) {
       updateIdentityBar();
     } else {
-      // Stale claim — team no longer exists
       localStorage.removeItem(POOL_ID ? `masters-claimed-${POOL_ID}` : 'masters-claimed');
     }
   }
@@ -2567,7 +2569,6 @@ async function init() {
   if ((!claimed || pool.meIndex < 0) && hasNamedTeams) {
     setTimeout(showClaimOverlay, 400);
   }
-  } catch(e) { console.error('Init error:', e); }
 }
 init();
 </script>
