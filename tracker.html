@@ -2567,110 +2567,182 @@ function closeH2H() {
 
 let prevStandings = {}; // teamName -> position
 
-// ===== Money Calculator (Probability Model) =====
+// =======================================================
+// MONEY ON THE LINE — Odds-Based, Progress-Weighted EV
+// =======================================================
+// Methodology:
+// 1. Convert each golfer's pre-tournament odds into finish-bucket
+//    probabilities (win, top5, top10, top20, make cut, miss cut)
+// 2. Map each bucket to an expected final score relative to par
+// 3. As tournament progresses, shift weight from pre-tournament
+//    odds to actual performance using a Bayesian progress factor
+// 4. Monte Carlo 8,000 sims using best-2-of-3 team scoring
+// 5. EV = P(1st) * $1,530 + P(2nd) * $170 - $100
+// =======================================================
+
 const POOL_BUY_IN = 100;
 
-// Convert American odds to implied probability
+// --- Data Ingestion Layer ---
+
+// Convert American odds to implied probability (vig-inclusive)
 function oddsToProb(odds) {
   if (odds < 0) return (-odds) / (-odds + 100);
   return 100 / (odds + 100);
 }
 
-// Estimate a golfer's expected remaining score and std dev
-// based on current score, position, and pre-tournament odds
+// Extract finish-bucket probabilities from a golfer's odds
+// Returns { pWin, pTop5, pTop10, pTop20, pCut, pMiss }
+function getFinishBuckets(info) {
+  if (!info) return { pWin: 0.01, pTop5: 0.05, pTop10: 0.10, pTop20: 0.20, pCut: 0.60, pMiss: 0.40 };
+
+  const pWin = oddsToProb(info.winOdds);
+  const pTop5 = Math.max(pWin, oddsToProb(info.top5));
+  const pTop10 = Math.max(pTop5, oddsToProb(info.top10));
+  const pTop20 = Math.max(pTop10, oddsToProb(info.top20));
+  const pCut = Math.max(pTop20, oddsToProb(info.mcOdds));
+  const pMiss = 1 - pCut;
+
+  return { pWin, pTop5, pTop10, pTop20, pCut, pMiss };
+}
+
+// --- Score Mapping Layer ---
+// Map finish buckets to expected final scores (relative to par)
+// Based on historical Masters finishing scores:
+//   Winner: ~-12 to -18, Top5: ~-8 to -12, Top10: ~-5 to -8
+//   Top20: ~-2 to -5, Made cut (21-50): ~+1 to +5, Missed cut: ~+6 to +10
+const BUCKET_SCORES = {
+  win:   { mean: -14, std: 2.5 },  // winners average ~-14
+  top5:  { mean: -9,  std: 2.0 },  // top 5 finish ~-9
+  top10: { mean: -6,  std: 2.0 },  // top 10 ~-6
+  top20: { mean: -3,  std: 2.0 },  // top 20 ~-3
+  cut:   { mean: 3,   std: 3.0 },  // made cut but outside top 20
+  miss:  { mean: 8,   std: 2.0 },  // missed cut penalty
+};
+
+// Calculate pre-tournament expected score from odds
+function pretourneyExpectedScore(info) {
+  const b = getFinishBuckets(info);
+
+  // Decompose into non-overlapping probability bands
+  const bands = [
+    { prob: b.pWin,               score: BUCKET_SCORES.win },
+    { prob: b.pTop5 - b.pWin,     score: BUCKET_SCORES.top5 },
+    { prob: b.pTop10 - b.pTop5,   score: BUCKET_SCORES.top10 },
+    { prob: b.pTop20 - b.pTop10,  score: BUCKET_SCORES.top20 },
+    { prob: b.pCut - b.pTop20,    score: BUCKET_SCORES.cut },
+    { prob: b.pMiss,              score: BUCKET_SCORES.miss },
+  ];
+
+  // Weighted expected score
+  let mean = 0, variance = 0;
+  bands.forEach(({ prob, score }) => {
+    const p = Math.max(0, prob);
+    mean += p * score.mean;
+    // Total variance = within-bucket variance + between-bucket variance
+    variance += p * (score.std * score.std + score.mean * score.mean);
+  });
+  variance -= mean * mean; // Var(X) = E[X²] - E[X]²
+
+  return { mean, std: Math.sqrt(Math.max(1, variance)) };
+}
+
+// --- Progress-Weighted Projection Engine ---
+
+function getHolesPlayed(g) {
+  if (g.thru === 'F') {
+    // Count completed rounds
+    const completedRounds = (g.rounds || []).filter(r => r.holesPlayed === 18).length;
+    return completedRounds * 18;
+  }
+  if (g.thru && g.thru > 0) {
+    const completedRounds = (g.rounds || []).filter(r => r.holesPlayed === 18).length;
+    // Current round thru + prior completed rounds
+    return completedRounds * 18 + (typeof g.thru === 'number' ? g.thru : 0);
+  }
+  return (g.rounds || []).reduce((s, r) => s + (r.holesPlayed || 0), 0);
+}
+
 function golferProjection(g, info) {
-  // If cut/wd, they're done — fixed bad score
+  // --- Edge case: cut/withdrawn ---
+  // Fixed penalty, no variance — this golfer is done
   if (g.status === 'cut' || g.status === 'wd') return { mean: 8, std: 0 };
 
-  // Determine how much they've actually played
-  const holesPlayed = g.thru && g.thru !== 'F' ? g.thru : (g.rounds || []).reduce((s, r) => s + (r.holesPlayed || 0), 0);
+  const holesPlayed = getHolesPlayed(g);
   const totalHoles = 72;
-  const pctDone = Math.min(holesPlayed / totalHoles, 1);
-  const pctLeft = 1 - pctDone;
-  const hasPlayed = pctDone > 0 && g.score !== null;
+  // progressFactor: 0 = hasn't started, 1 = tournament over
+  const progressFactor = Math.min(holesPlayed / totalHoles, 1);
 
-  // Small prior edge from odds — slight, not dominant
-  // Favorites get a tiny nudge, longshots a tiny penalty
-  let oddsNudge = 0;
-  if (info) {
-    const t20prob = oddsToProb(info.top20);
-    // Range: favorite (t20prob~0.8) gets -1, longshot (t20prob~0.2) gets +1
-    oddsNudge = -2 * (t20prob - 0.5); // range ~ -1 to +1
+  // --- Pre-tournament projection from odds ---
+  const prior = pretourneyExpectedScore(info);
+
+  // --- Haven't teed off ---
+  if (holesPlayed === 0 || g.score === null || g.score === undefined) {
+    // Pure pre-tournament projection — but uncertainty is maximum
+    // This correctly ranks Scheffler's PROJECTION above a longshot's
+    // but the high std means it barely separates in Monte Carlo
+    return { mean: prior.mean, std: prior.std };
   }
 
-  if (!hasPlayed) {
-    // Haven't teed off — everyone gets roughly the same projection
-    // Small nudge from odds but high uncertainty means it barely matters
-    return { mean: 1 + oddsNudge, std: 7 };
-  }
+  // --- In progress: Bayesian blend of actual score + prior ---
+  // As progressFactor → 1, trust actual score more
+  // As progressFactor → 0, lean on prior (but we already played some holes)
+  const actualScore = g.score;
 
-  // Have actual scores — this is what matters
-  const currentScore = g.score;
+  // Weight: actual score gets more weight as tournament progresses
+  // At 25% done (18 holes): 55% actual, 45% prior
+  // At 50% done (36 holes): 75% actual, 25% prior
+  // At 75% done (54 holes): 90% actual, 10% prior
+  // At 100%: 100% actual
+  const actualWeight = 0.4 + 0.6 * progressFactor;
+  const priorWeight = 1 - actualWeight;
 
-  // Project final score: current score is the anchor
-  // Regress slightly toward field average as tournament progresses
-  // Early: more regression. Late: trust the score.
-  const regressionTarget = 1 + oddsNudge; // slight regression toward slightly over par
-  const mean = currentScore * (0.6 + 0.4 * pctDone) + regressionTarget * (0.4 - 0.4 * pctDone);
+  const mean = actualScore * actualWeight + prior.mean * priorWeight;
 
-  // Uncertainty: high early, shrinks as holes complete
-  const std = Math.max(1, 6 * Math.sqrt(pctLeft));
+  // Uncertainty shrinks as more holes are played
+  // At start: full prior std (~5-7)
+  // At finish: near 0 (score is locked)
+  const remainingUncertainty = prior.std * Math.sqrt(1 - progressFactor);
+  // Minimum uncertainty of 0.5 until tournament is 100% done
+  const std = progressFactor >= 1 ? 0.1 : Math.max(0.5, remainingUncertainty);
 
   return { mean, std };
 }
 
-// Simple normal CDF approximation
-function normCDF(x) {
-  const t = 1 / (1 + 0.2316419 * Math.abs(x));
-  const d = 0.3989422804 * Math.exp(-x * x / 2);
-  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.8212560 + t * 1.3302744))));
-  return x > 0 ? 1 - p : p;
-}
 
-// P(team A beats team B) given their projected score distributions
-function pWin(meanA, stdA, meanB, stdB) {
-  // P(A < B) where lower is better
-  const diffMean = meanB - meanA; // positive = A is better
-  const diffStd = Math.sqrt(stdA * stdA + stdB * stdB) || 0.01;
-  return normCDF(diffMean / diffStd);
-}
+// --- Monte Carlo Simulation Engine ---
 
-// Monte Carlo-lite: estimate P(1st) and P(2nd) for each team
 function calcTeamProbabilities(teams) {
   const n = teams.length;
-  const SIMS = 5000;
+  const SIMS = 8000;
   const wins = new Array(n).fill(0);
   const seconds = new Array(n).fill(0);
 
   for (let s = 0; s < SIMS; s++) {
-    // Sample a final score for each team
     const scores = teams.map(t => {
-      // Team score = best 2 of 3 golfers
+      // Sample final score for each golfer using Box-Muller
       const gScores = t.projections.map(p => {
-        // Box-Muller transform for normal random
         const u1 = Math.random();
         const u2 = Math.random();
-        const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+        const z = Math.sqrt(-2 * Math.log(u1 || 1e-10)) * Math.cos(2 * Math.PI * u2);
         return p.mean + p.std * z;
       });
-      // Best 2 of 3
+      // Best 2 of 3 (pool scoring format)
       gScores.sort((a, b) => a - b);
       return gScores[0] + (gScores[1] !== undefined ? gScores[1] : 0);
     });
 
-    // Find 1st and 2nd
-    let bestIdx = 0, secondIdx = 1;
-    if (scores[1] < scores[0]) { bestIdx = 1; secondIdx = 0; }
-    for (let i = 2; i < n; i++) {
+    // Find 1st and 2nd place (lowest score wins)
+    let bestIdx = 0, secondIdx = -1;
+    for (let i = 1; i < n; i++) {
       if (scores[i] < scores[bestIdx]) {
         secondIdx = bestIdx;
         bestIdx = i;
-      } else if (scores[i] < scores[secondIdx]) {
+      } else if (secondIdx === -1 || scores[i] < scores[secondIdx]) {
         secondIdx = i;
       }
     }
     wins[bestIdx]++;
-    seconds[secondIdx]++;
+    if (secondIdx >= 0) seconds[secondIdx]++;
   }
 
   return teams.map((t, i) => ({
@@ -2679,6 +2751,8 @@ function calcTeamProbabilities(teams) {
     pSecond: seconds[i] / SIMS,
   }));
 }
+
+// --- Render Layer ---
 
 function renderMoneyCalc() {
   const container = document.getElementById('moneyCalc');
@@ -2700,24 +2774,13 @@ function renderMoneyCalc() {
 
     const projections = golfers.map(g => golferProjection(g, g.info));
 
-    // Current score for display
-    const active = golfers.filter(g => g.status !== 'cut' && g.status !== 'wd' && g.score !== null);
-    const cutCount = golfers.filter(g => g.status === 'cut' || g.status === 'wd').length;
-    let teamScore = null;
-    if (active.length >= 2) {
-      const sorted = [...active].sort((a, b) => a.score - b.score);
-      teamScore = sorted[0].score + sorted[1].score;
-    } else if (active.length === 1 && cutCount === 0) {
-      teamScore = active[0].score;
-    }
-
-    return { name: t.name, teamScore, projections, isMe: t.name === claimed };
+    return { name: t.name, projections, isMe: t.name === claimed };
   });
 
-  // Run simulation
+  // Run Monte Carlo
   const results = calcTeamProbabilities(teams);
 
-  // Calculate EV for each team
+  // Calculate expected value
   results.forEach(t => {
     t.ev = t.pWin * firstPrize + t.pSecond * secondPrize - POOL_BUY_IN;
   });
@@ -2727,6 +2790,7 @@ function renderMoneyCalc() {
 
   let html = `<div class="money-card">
     <div class="money-title">MONEY ON THE LINE</div>
+    <div style="font-size:10px;color:var(--text-dim);margin-bottom:2px;">Odds-weighted Monte Carlo · 8,000 sims · best 2 of 3</div>
     <div style="font-size:11px;color:var(--text-dim);font-family:var(--mono);margin-bottom:10px;">
       $${POOL_BUY_IN} x ${namedTeams.length} = <strong style="color:var(--champagne);">$${totalPot} pot</strong> &nbsp;|&nbsp; 1st: $${firstPrize} &nbsp;|&nbsp; 2nd: $${secondPrize}
     </div>
@@ -2742,7 +2806,6 @@ function renderMoneyCalc() {
     const secPct = (t.pSecond * 100).toFixed(1);
     const evText = t.ev >= 0 ? `+$${Math.round(t.ev)}` : `-$${Math.abs(Math.round(t.ev))}`;
     const evClass = t.ev > 0 ? 'winning' : t.ev === 0 ? 'even' : 'losing';
-    const winBar = Math.max(1, t.pWin * 100);
 
     html += `<div class="money-row ${t.isMe ? 'money-me' : ''}">
       <span class="money-name">${esc(t.name)} ${t.isMe ? '<span style="color:var(--champagne);font-size:10px;">(YOU)</span>' : ''}</span>
