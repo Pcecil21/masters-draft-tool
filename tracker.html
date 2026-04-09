@@ -127,23 +127,29 @@
   .mode-bar {
     background: var(--augusta-black);
     border-bottom: 1px solid var(--border);
-    padding: 8px 20px;
+    padding: 8px 12px;
     display: flex;
-    gap: 8px;
+    gap: 6px;
     align-items: center;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
+  .mode-bar::-webkit-scrollbar { display: none; }
 
   .mode-pill {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 14px;
-    letter-spacing: 2px;
-    padding: 6px 16px;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    padding: 6px 10px;
     border-radius: 4px;
     cursor: pointer;
     border: 1px solid var(--border);
     background: transparent;
     color: var(--text-dim);
     transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .mode-pill.active {
@@ -1492,10 +1498,17 @@
   .h2h-pick-btn:hover { border-color: var(--champagne); color: var(--champagne); }
 
   @media (max-width: 600px) {
+    .mode-pill { font-size: 11px; letter-spacing: 1px; padding: 5px 8px; }
     .pool-score { width: 54px; font-size: 22px; }
     .pool-pos { width: 34px; font-size: 18px; }
     .pool-name { font-size: 13px; }
     .pool-g { font-size: 11px; }
+    .h2h-modal { padding: 16px; }
+    .h2h-vs { padding: 0 6px; font-size: 16px; }
+    .h2h-golfer-score { font-size: 12px; }
+    .tourn-rounds { gap: 2px; }
+    .tourn-rd { width: 26px; font-size: 10px; }
+    .pwr-bar { width: 40px; }
   }
 </style>
 </head>
