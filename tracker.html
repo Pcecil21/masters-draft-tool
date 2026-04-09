@@ -1174,6 +1174,8 @@ function loadData() {
   try {
     const saved = localStorage.getItem(`masters-pool-${YEAR}`);
     if (saved) pool = JSON.parse(saved);
+    if (!pool.scores) pool.scores = {};
+    if (!pool.teams) pool.teams = [];
   } catch(e) {}
 }
 
@@ -1185,6 +1187,7 @@ function saveData() {
 
 // ===== Setup View =====
 function addTeam() {
+  if (pool.teams.length >= 20) { alert('Maximum 20 teams'); return; }
   pool.teams.push({ name: '', golfers: ['', '', ''] });
   saveData();
   renderSetup();
@@ -1211,6 +1214,7 @@ function updateTeamName(i, val) {
 
 function updateGolfer(teamIdx, golferIdx, val) {
   pool.teams[teamIdx].golfers[golferIdx] = val;
+  if (!pool.scores) pool.scores = {};
   // Init score tracking
   if (val && !pool.scores[val]) {
     pool.scores[val] = { score: null, status: 'active' };
@@ -1270,6 +1274,7 @@ function fmtScore(s) {
 }
 
 function updateScore(golfer, val) {
+  if (!pool.scores) pool.scores = {};
   const parsed = parseScore(val);
   if (parsed === 'CUT') {
     pool.scores[golfer] = { score: null, status: 'cut' };
@@ -1430,6 +1435,8 @@ async function fetchESPN() {
     const competitors = event.competitions?.[0]?.competitors || [];
     let matched = 0;
     let total = 0;
+
+    if (!pool.scores) pool.scores = {};
 
     competitors.forEach(c => {
       const name = c.athlete?.displayName || c.athlete?.fullName || '';
@@ -2490,8 +2497,12 @@ async function loadPoolFromCloud() {
       }));
     }
     // Load golfer scores from cloud if available
-    if (data.scores && !data.scores.teams) {
-      pool.scores = { ...pool.scores, ...data.scores };
+    if (data.scores) {
+      const { teams: _t, bets: _b, heckles: _h, ...golferScores } = data.scores;
+      if (Object.keys(golferScores).length) {
+        if (!pool.scores) pool.scores = {};
+        pool.scores = { ...pool.scores, ...golferScores };
+      }
     }
     saveData();
     return true;
@@ -2532,7 +2543,7 @@ async function init() {
   // Snapshot current scores so next fetch can detect drops
   prevScores = JSON.parse(JSON.stringify(pool.scores || {}));
   if (pool.teams.length === 0) {
-    for (let i = 0; i < 8; i++) pool.teams.push({ name: '', golfers: ['', '', ''] });
+    for (let i = 0; i < 20; i++) pool.teams.push({ name: '', golfers: ['', '', ''] });
     saveData();
   }
 
