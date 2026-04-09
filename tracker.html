@@ -1545,8 +1545,8 @@
   <button class="mode-pill active" onclick="switchMode('live')"><span class="live-dot"></span>LEADERBOARD</button>
   <button class="mode-pill" onclick="switchMode('tournament')">TOURNAMENT</button>
   <button class="mode-pill" onclick="switchMode('cutline')">CUT LINE</button>
-  <button class="mode-pill" onclick="switchMode('scorecard')">DRAFT GRADES</button>
   <button class="mode-pill cheese-pill" onclick="switchMode('cheese')">SIDE CHEESE</button>
+  <button class="mode-pill" onclick="switchMode('scorecard')">DRAFT GRADES</button>
 </div>
 
 <!-- SETUP VIEW -->
@@ -2881,16 +2881,16 @@ function switchMode(mode) {
     pills[2].classList.add('active');
     document.getElementById('cutlineView').classList.add('active');
     renderCutTracker();
-  } else if (mode === 'scorecard') {
-    pills[3].classList.add('active');
-    document.getElementById('scorecardView').classList.add('active');
-    renderScorecard();
   } else if (mode === 'cheese') {
-    pills[4].classList.add('active');
+    pills[3].classList.add('active');
     document.getElementById('cheeseView').classList.add('active');
     renderBetForm();
     renderTemplates();
     renderBets();
+  } else if (mode === 'scorecard') {
+    pills[4].classList.add('active');
+    document.getElementById('scorecardView').classList.add('active');
+    renderScorecard();
   } else {
     pills[0].classList.add('active');
     document.getElementById('liveView').classList.add('active');
