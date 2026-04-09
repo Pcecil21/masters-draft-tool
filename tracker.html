@@ -3664,10 +3664,12 @@ function setBetFilter(f) {
 
 function showBetToast(text) {
   const toast = document.getElementById('betToast');
-  toast.innerHTML = `<div>${text}</div><button class="bet-toast-btn" onclick="switchMode('cheese');closeBetToast()">GO TO SIDE CHEESE</button>`;
+  toast.innerHTML = `<div>${text}</div>
+    <div style="display:flex;gap:8px;">
+      <button class="bet-toast-btn" onclick="switchMode('cheese');closeBetToast()">GO TO SIDE CHEESE</button>
+      <button class="bet-toast-btn" onclick="closeBetToast()" style="background:none;color:var(--text-dim);border:1px solid var(--border);">DISMISS</button>
+    </div>`;
   toast.classList.add('show');
-  clearTimeout(toast._timer);
-  toast._timer = setTimeout(() => toast.classList.remove('show'), 8000);
 }
 
 function closeBetToast() {
