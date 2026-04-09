@@ -2568,13 +2568,7 @@ function closeH2H() {
 let prevStandings = {}; // teamName -> position
 
 // ===== Money Calculator =====
-let poolBuyIn = parseInt(localStorage.getItem('masters-buyin') || '100');
-
-function saveBuyIn(val) {
-  poolBuyIn = parseInt(val) || 0;
-  localStorage.setItem('masters-buyin', poolBuyIn);
-  renderMoneyCalc();
-}
+const POOL_BUY_IN = 100;
 
 function renderMoneyCalc() {
   const container = document.getElementById('moneyCalc');
@@ -2582,7 +2576,7 @@ function renderMoneyCalc() {
   const namedTeams = pool.teams.filter(t => t.name);
   if (namedTeams.length < 2) { container.style.display = 'none'; return; }
 
-  const totalPot = poolBuyIn * namedTeams.length;
+  const totalPot = POOL_BUY_IN * namedTeams.length;
 
   // Calculate standings for payout
   const ranked = namedTeams.map(t => {
@@ -2610,33 +2604,30 @@ function renderMoneyCalc() {
   // Payout: 1st 90%, 2nd 10%
   const payouts = [0.90, 0.10];
 
+  const first = Math.round(totalPot * payouts[0]);
+  const second = Math.round(totalPot * payouts[1]);
+
   let html = `<div class="money-card">
     <div class="money-title">MONEY ON THE LINE</div>
-    <div class="money-setup">
-      <span style="color:var(--text-dim);">Buy-in: $</span>
-      <input class="money-input" type="number" value="${poolBuyIn}" onchange="saveBuyIn(this.value)" placeholder="0">
-      <span style="color:var(--text-dim);font-family:var(--mono);">Pot: <strong style="color:var(--champagne);">$${totalPot}</strong></span>
+    <div style="font-size:11px;color:var(--text-dim);font-family:var(--mono);margin-bottom:10px;">
+      $${POOL_BUY_IN} x ${namedTeams.length} = <strong style="color:var(--champagne);">$${totalPot} pot</strong> &nbsp;|&nbsp; 1st: $${first} &nbsp;|&nbsp; 2nd: $${second}
     </div>`;
 
-  if (poolBuyIn > 0) {
-    ranked.forEach((t, i) => {
-      let amt = -poolBuyIn; // everyone starts in the hole
-      if (i < payouts.length) amt = Math.round(totalPot * payouts[i]) - poolBuyIn;
-      const isLast = i === ranked.length - 1;
-      const amtText = amt >= 0 ? `+$${amt}` : `-$${Math.abs(amt)}`;
-      const amtClass = amt > 0 ? 'winning' : amt === 0 ? 'even' : 'losing';
-      const lastTag = isLast ? ' <span style="font-size:10px;color:var(--red);">LAST</span>' : '';
-      const posLabel = i < 3 ? ['1st', '2nd', '3rd'][i] : `${i + 1}th`;
+  ranked.forEach((t, i) => {
+    let amt = -POOL_BUY_IN;
+    if (i < payouts.length) amt = Math.round(totalPot * payouts[i]) - POOL_BUY_IN;
+    const isLast = i === ranked.length - 1;
+    const amtText = amt >= 0 ? `+$${amt}` : `-$${Math.abs(amt)}`;
+    const amtClass = amt > 0 ? 'winning' : amt === 0 ? 'even' : 'losing';
+    const lastTag = isLast ? ' <span style="font-size:10px;color:var(--red);">LAST</span>' : '';
+    const posLabel = i < 3 ? ['1st', '2nd', '3rd'][i] : `${i + 1}th`;
 
-      html += `<div class="money-row ${t.isMe ? 'money-me' : ''}">
-        <span class="money-pos">${posLabel}</span>
-        <span class="money-name">${esc(t.name)}${lastTag}</span>
-        <span class="money-amt ${amtClass}">${amtText}</span>
-      </div>`;
-    });
-  } else {
-    html += '<div style="font-size:11px;color:var(--text-dim);padding:8px 0;">Enter your buy-in to see projected payouts</div>';
-  }
+    html += `<div class="money-row ${t.isMe ? 'money-me' : ''}">
+      <span class="money-pos">${posLabel}</span>
+      <span class="money-name">${esc(t.name)}${lastTag}</span>
+      <span class="money-amt ${amtClass}">${amtText}</span>
+    </div>`;
+  });
 
   html += '</div>';
   container.innerHTML = html;
