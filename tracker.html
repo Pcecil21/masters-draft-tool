@@ -1082,6 +1082,23 @@
     font-family: var(--mono);
   }
 
+  .heckle-toggle {
+    width: 100%;
+    padding: 10px;
+    margin-top: 4px;
+    margin-bottom: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .heckle-toggle:hover { background: rgba(255,255,255,0.08); color: var(--text-bright); }
+
   /* Heckle toast */
   .heckle-toast {
     position: fixed;
@@ -4181,7 +4198,11 @@ function renderHeckleFeed() {
     return;
   }
   head.style.display = '';
-  feed.innerHTML = heckles.slice(0, 20).map(h => {
+  const VISIBLE = 4;
+  const all = heckles.slice(0, 50);
+  const hasMore = all.length > VISIBLE;
+
+  const renderItem = h => {
     const time = new Date(h.time);
     const timeStr = time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     return `<div class="heckle-item ${h.category === 'epic' ? 'epic' : ''}">
@@ -4189,7 +4210,23 @@ function renderHeckleFeed() {
       <div class="heckle-text">${esc(h.text)}</div>
       <div class="heckle-context">${timeStr}</div>
     </div>`;
-  }).join('');
+  };
+
+  const visibleHtml = all.slice(0, VISIBLE).map(renderItem).join('');
+  const hiddenHtml = hasMore ? all.slice(VISIBLE).map(renderItem).join('') : '';
+  const toggleBtn = hasMore ? `<button class="heckle-toggle" onclick="toggleHeckleHistory(this)">Show ${all.length - VISIBLE} more</button>` : '';
+
+  feed.innerHTML = visibleHtml
+    + (hasMore ? `<div class="heckle-overflow" style="display:none;">${hiddenHtml}</div>` : '')
+    + toggleBtn;
+}
+
+function toggleHeckleHistory(btn) {
+  const overflow = btn.previousElementSibling;
+  const showing = overflow.style.display !== 'none';
+  overflow.style.display = showing ? 'none' : 'block';
+  const count = overflow.querySelectorAll('.heckle-item').length;
+  btn.textContent = showing ? `Show ${count} more` : 'Show less';
 }
 
 function loadHeckles() {
