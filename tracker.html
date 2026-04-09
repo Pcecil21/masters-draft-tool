@@ -1523,6 +1523,129 @@
   .h2h-close-btn:hover { border-color: var(--champagne); color: var(--champagne); }
 
   .pool-row.h2h-selected { border-color: var(--champagne); box-shadow: 0 0 0 1px var(--champagne); }
+
+  /* Movement arrows */
+  .pool-move {
+    font-size: 10px;
+    font-family: var(--mono);
+    font-weight: 700;
+    margin-left: 4px;
+  }
+  .pool-move.up { color: #4ADE80; }
+  .pool-move.down { color: var(--red); }
+  .pool-move.new-entry { color: var(--champagne); }
+
+  /* Animated rows */
+  .pool-row {
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0.6; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .pool-row.moved-up { animation: moveUp 0.5s ease; }
+  .pool-row.moved-down { animation: moveDown 0.5s ease; }
+  @keyframes moveUp {
+    from { opacity: 0.7; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes moveDown {
+    from { opacity: 0.7; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Money calculator */
+  .money-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+  }
+  .money-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 1px;
+    color: var(--champagne);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .money-setup {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 12px;
+  }
+  .money-input {
+    width: 60px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 12px;
+    text-align: center;
+  }
+  .money-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 12px;
+  }
+  .money-row:last-child { border: none; }
+  .money-pos { width: 20px; font-family: 'Bebas Neue',sans-serif; font-size: 14px; color: var(--champagne); }
+  .money-name { flex: 1; font-weight: 600; }
+  .money-amt {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .money-amt.winning { color: #4ADE80; }
+  .money-amt.losing { color: var(--red); }
+  .money-amt.even { color: var(--text-dim); }
+  .money-row.money-me { background: rgba(11,74,46,0.1); border-radius: 4px; padding: 5px 4px; }
+
+  /* Roast Recap */
+  .roast-card {
+    background: linear-gradient(135deg, var(--bg-card), rgba(30,10,0,0.3));
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-top: 16px;
+  }
+  .roast-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 1px;
+    color: var(--red);
+    margin-bottom: 10px;
+  }
+  .roast-text {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+  .roast-text strong { color: var(--champagne); }
+  .roast-text .roast-burn { color: var(--red); font-weight: 600; }
+  .roast-text .roast-crown { color: #FFD700; font-weight: 600; }
+  .roast-share-btn {
+    margin-top: 12px;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+  }
+  .roast-share-btn:hover { border-color: var(--champagne); color: var(--champagne); }
   .h2h-pick-btn {
     font-size: 9px;
     padding: 1px 6px;
@@ -1654,11 +1777,14 @@
 
   <div id="sweatMeter" style="display:none;"></div>
 
+  <div id="moneyCalc" style="display:none;"></div>
+
   <div class="section-head">POOL STANDINGS</div>
   <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">Tap a team to expand. Tap two teams to compare head-to-head.</div>
   <div class="pool-board" id="poolBoard"></div>
   <div class="last-updated" id="lastUpdated"></div>
 
+  <div id="roastRecap" style="display:none;"></div>
   <div id="powerRankings" style="display:none;"></div>
 </div>
 
@@ -2439,8 +2565,196 @@ function closeH2H() {
   document.querySelectorAll('.pool-row').forEach(r => r.classList.remove('h2h-selected'));
 }
 
+let prevStandings = {}; // teamName -> position
+
+// ===== Money Calculator =====
+let poolBuyIn = parseInt(localStorage.getItem('masters-buyin') || '0');
+
+function saveBuyIn(val) {
+  poolBuyIn = parseInt(val) || 0;
+  localStorage.setItem('masters-buyin', poolBuyIn);
+  renderMoneyCalc();
+}
+
+function renderMoneyCalc() {
+  const container = document.getElementById('moneyCalc');
+  const claimed = getClaimedTeam();
+  const namedTeams = pool.teams.filter(t => t.name);
+  if (namedTeams.length < 2) { container.style.display = 'none'; return; }
+
+  const totalPot = poolBuyIn * namedTeams.length;
+
+  // Calculate standings for payout
+  const ranked = namedTeams.map(t => {
+    const golfers = t.golfers.filter(g => g).map(name => {
+      const data = pool.scores[name] || {};
+      return { name, ...data };
+    });
+    const active = golfers.filter(g => g.status !== 'cut' && g.status !== 'wd' && g.score !== null);
+    const cutCount = golfers.filter(g => g.status === 'cut' || g.status === 'wd').length;
+    let teamScore = null;
+    if (active.length >= 2) {
+      const sorted = [...active].sort((a, b) => a.score - b.score);
+      teamScore = sorted[0].score + sorted[1].score;
+    } else if (active.length === 1 && cutCount === 0) {
+      teamScore = active[0].score;
+    }
+    return { name: t.name, teamScore, isMe: t.name === claimed };
+  }).sort((a, b) => {
+    if (a.teamScore === null && b.teamScore === null) return 0;
+    if (a.teamScore === null) return 1;
+    if (b.teamScore === null) return -1;
+    return a.teamScore - b.teamScore;
+  });
+
+  // Payout: 1st 60%, 2nd 25%, 3rd 10%, last place gets name on toilet trophy
+  const payouts = [0.60, 0.25, 0.10];
+
+  let html = `<div class="money-card">
+    <div class="money-title">MONEY ON THE LINE</div>
+    <div class="money-setup">
+      <span style="color:var(--text-dim);">Buy-in: $</span>
+      <input class="money-input" type="number" value="${poolBuyIn}" onchange="saveBuyIn(this.value)" placeholder="0">
+      <span style="color:var(--text-dim);font-family:var(--mono);">Pot: <strong style="color:var(--champagne);">$${totalPot}</strong></span>
+    </div>`;
+
+  if (poolBuyIn > 0) {
+    ranked.forEach((t, i) => {
+      let amt = -poolBuyIn; // everyone starts in the hole
+      if (i < payouts.length) amt = Math.round(totalPot * payouts[i]) - poolBuyIn;
+      const isLast = i === ranked.length - 1;
+      const amtText = amt >= 0 ? `+$${amt}` : `-$${Math.abs(amt)}`;
+      const amtClass = amt > 0 ? 'winning' : amt === 0 ? 'even' : 'losing';
+      const lastTag = isLast ? ' <span style="font-size:10px;color:var(--red);">LAST</span>' : '';
+      const posLabel = i < 3 ? ['1st', '2nd', '3rd'][i] : `${i + 1}th`;
+
+      html += `<div class="money-row ${t.isMe ? 'money-me' : ''}">
+        <span class="money-pos">${posLabel}</span>
+        <span class="money-name">${esc(t.name)}${lastTag}</span>
+        <span class="money-amt ${amtClass}">${amtText}</span>
+      </div>`;
+    });
+  } else {
+    html += '<div style="font-size:11px;color:var(--text-dim);padding:8px 0;">Enter your buy-in to see projected payouts</div>';
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
+  container.style.display = 'block';
+}
+
+// ===== Roast Recap =====
+const ROAST_TEMPLATES = {
+  worst: [
+    "{name}'s squad is putting on a masterclass in how to flush money down the toilet. {golfer} at {score}? That's not a golf score, that's a felony.",
+    "Somebody check on {name}. Three golfers and not one of them can break even. {golfer} at {score} is doing things to par that should be illegal.",
+    "{name} drafted like they picked names out of a hat at a Waffle House. {golfer} is {score} and sinking faster than {name}'s fantasy of ever winning this pool.",
+    "If {name}'s team was a stock, the SEC would halt trading. {golfer} at {score} is just disrespectful to the game of golf.",
+    "{name} brought a knife to a gunfight. {golfer} at {score} — at this point just withdraw and save us all the secondhand embarrassment.",
+  ],
+  best: [
+    "{name} is sitting pretty right now — {golfer} at {score} is carrying this team like it owes them money. Don't get comfortable though, it's Augusta.",
+    "Crown {name} the round MVP. {golfer} at {score} is making everyone else look like they've never held a club. Enjoy it while it lasts.",
+    "{name} watching their team from the couch like a proud parent. {golfer} at {score} is putting on a clinic out there.",
+    "Everyone hates {name} right now and honestly? Fair. {golfer} at {score} is just showing off at this point.",
+  ],
+  cutVictim: [
+    "Pour one out for {name} — {golfer} missed the cut. That's not just bad luck, that's bad drafting.",
+    "{name} lost {golfer} to the cut. The walk back to the clubhouse was shorter than {name}'s hopes for this pool.",
+  ],
+  lastPlace: [
+    "And in dead last, because someone has to be: {name}. Your team has the collective talent of a mall parking lot.",
+    "{name} is bringing up the rear with a squad that makes the cut line look like Everest.",
+    "Last place {name} — the toilet trophy is getting engraved as we speak.",
+  ],
+};
+
+function pickRoast(category, vars) {
+  const templates = ROAST_TEMPLATES[category];
+  const idx = hashStr(vars.name + (vars.golfer || '') + new Date().toDateString()) % templates.length;
+  let text = templates[idx];
+  for (const [k, v] of Object.entries(vars)) {
+    text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+  }
+  return text;
+}
+
+function renderRoastRecap(standings) {
+  const container = document.getElementById('roastRecap');
+  const namedWithScores = standings.filter(t => t.name && t.teamScore !== null);
+  if (namedWithScores.length < 2) { container.style.display = 'none'; return; }
+
+  const worst = namedWithScores[namedWithScores.length - 1];
+  const best = namedWithScores[0];
+
+  // Find individual worst and best golfers
+  let worstGolfer = { name: '', score: -999, owner: '' };
+  let bestGolfer = { name: '', score: 999, owner: '' };
+  namedWithScores.forEach(t => {
+    t.golfers.forEach(g => {
+      if (g.score !== null && g.status !== 'cut') {
+        if (g.score > worstGolfer.score) worstGolfer = { name: g.name, score: g.score, owner: t.name };
+        if (g.score < bestGolfer.score) bestGolfer = { name: g.name, score: g.score, owner: t.name };
+      }
+    });
+  });
+
+  let recap = '';
+
+  // Crown the MVP
+  recap += `<span class="roast-crown">${pickRoast('best', { name: best.name, golfer: bestGolfer.name, score: fmtScore(bestGolfer.score) })}</span>`;
+
+  // Roast the worst
+  recap += `<br><br><span class="roast-burn">${pickRoast('worst', { name: worst.name, golfer: worstGolfer.name, score: fmtScore(worstGolfer.score) })}</span>`;
+
+  // Last place special
+  recap += `<br><br>${pickRoast('lastPlace', { name: worst.name })}`;
+
+  // Cut victims
+  const cutVictims = [];
+  namedWithScores.forEach(t => {
+    t.golfers.forEach(g => {
+      if (g.status === 'cut') cutVictims.push({ golfer: g.name, owner: t.name });
+    });
+  });
+  if (cutVictims.length) {
+    const cv = cutVictims[0];
+    recap += `<br><br>${pickRoast('cutVictim', { name: cv.owner, golfer: cv.golfer })}`;
+  }
+
+  // Copy-friendly version
+  const plainText = recap.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&');
+
+  container.innerHTML = `<div class="roast-card">
+    <div class="roast-title">ROUND RECAP</div>
+    <div class="roast-text">${recap}</div>
+    <button class="roast-share-btn" onclick="copyRoast(this)">COPY FOR GROUP CHAT</button>
+  </div>`;
+  container.dataset.plain = plainText;
+  container.style.display = 'block';
+}
+
+function copyRoast(btn) {
+  const text = document.getElementById('roastRecap').dataset.plain;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'COPIED!';
+    setTimeout(() => { btn.textContent = 'COPY FOR GROUP CHAT'; }, 2000);
+  }).catch(() => {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = 'COPIED!';
+    setTimeout(() => { btn.textContent = 'COPY FOR GROUP CHAT'; }, 2000);
+  });
+}
+
 function renderLive() {
   renderSweatMeter();
+  renderMoneyCalc();
   renderScoreInputs();
 
   // Calculate team scores
@@ -2495,8 +2809,23 @@ function renderLive() {
     const pos = i + 1;
     const eliminated = !team.alive && team.cutCount >= 2;
 
-    return `<div class="pool-row ${team.isMe ? 'me' : ''} ${eliminated ? 'eliminated' : ''}" onclick="toggleTeamDetail(this)" data-team="${esc(team.name)}">
-      <div class="pool-pos ${pos === 1 ? 'first' : ''}">${pos}</div>
+    // Movement arrow
+    const prevPos = prevStandings[team.name];
+    let moveHtml = '';
+    let moveClass = '';
+    if (prevPos !== undefined && prevPos !== pos) {
+      const diff = prevPos - pos;
+      if (diff > 0) {
+        moveHtml = `<span class="pool-move up">\u25B2${diff}</span>`;
+        moveClass = 'moved-up';
+      } else {
+        moveHtml = `<span class="pool-move down">\u25BC${Math.abs(diff)}</span>`;
+        moveClass = 'moved-down';
+      }
+    }
+
+    return `<div class="pool-row ${team.isMe ? 'me' : ''} ${eliminated ? 'eliminated' : ''} ${moveClass}" onclick="toggleTeamDetail(this)" data-team="${esc(team.name)}">
+      <div class="pool-pos ${pos === 1 ? 'first' : ''}">${pos}${moveHtml}</div>
       <div class="pool-body">
         <div class="pool-name">${esc(team.name)} ${team.isMe ? '<span style="color:var(--champagne);font-size:11px;">(YOU)</span>' : ''} <button class="h2h-pick-btn" onclick="event.stopPropagation();handleH2HSelect('${esc(team.name).replace(/'/g, "\\'")}')">VS</button></div>
         <div class="pool-golfers">
@@ -2519,7 +2848,11 @@ function renderLive() {
     </div>`;
   }).join('');
 
+  // Save positions for next comparison
+  standings.forEach((t, i) => { prevStandings[t.name] = i + 1; });
+
   document.getElementById('lastUpdated').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+  renderRoastRecap(standings);
   renderPowerRankings();
 }
 
