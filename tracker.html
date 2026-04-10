@@ -2198,8 +2198,7 @@
         position: fixed;
         z-index: 9999;
         pointer-events: none;
-        animation: madden-wander 22s ease-in-out infinite alternate,
-                   madden-sway 2.5s ease-in-out infinite;
+        animation: madden-wander 22s ease-in-out infinite alternate;
         bottom: 10px;
         left: 5%;
       }
@@ -2212,44 +2211,60 @@
         80%  { left: 30%; bottom: 45px; }
         100% { left: 8%;  bottom: 10px; }
       }
+      .madden-inner {
+        position: relative;
+        animation: madden-sway 2.5s ease-in-out infinite;
+      }
       @keyframes madden-sway {
-        0%, 100% { transform: rotate(-4deg); }
-        50%      { transform: rotate(4deg); }
+        0%, 100% { transform: rotate(-3deg); }
+        50%      { transform: rotate(3deg); }
       }
-      #madden-float svg {
-        width: 90px;
-        height: auto;
-        filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));
+      .madden-photo {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+        object-position: center 15%;
+        border: 3px solid rgba(255,255,255,0.8);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4), 0 0 20px rgba(155,89,182,0.3);
       }
-      .shroom-bubble {
+      .madden-shroom {
+        position: absolute;
+        top: -40px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 32px;
         animation: shroom-bob 1.8s ease-in-out infinite;
+        filter: drop-shadow(0 2px 8px rgba(155,89,182,0.5));
       }
       @keyframes shroom-bob {
-        0%, 100% { transform: translateY(0); }
-        50%      { transform: translateY(-6px); }
+        0%, 100% { transform: translateX(-50%) translateY(0) scale(1); }
+        50%      { transform: translateX(-50%) translateY(-10px) scale(1.1); }
       }
-      .madden-legs {
-        animation: madden-kick 0.6s ease-in-out infinite alternate;
-        transform-origin: top center;
+      .madden-name {
+        text-align: center;
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 11px;
+        color: #fff;
+        letter-spacing: 1.5px;
+        margin-top: 4px;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+        opacity: 0.9;
       }
-      @keyframes madden-kick {
-        0%   { transform: rotate(-8deg); }
-        100% { transform: rotate(8deg); }
+      .madden-glow {
+        position: absolute;
+        inset: -6px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(155,89,182,0.25) 0%, transparent 70%);
+        animation: madden-pulse 3s ease-in-out infinite;
       }
-      .madden-arm-l {
-        animation: madden-arm-swing 0.8s ease-in-out infinite alternate;
-        transform-origin: 50% 0%;
-      }
-      .madden-arm-r {
-        animation: madden-arm-swing 0.8s ease-in-out infinite alternate-reverse;
-        transform-origin: 50% 0%;
-      }
-      @keyframes madden-arm-swing {
-        0%   { transform: rotate(-15deg); }
-        100% { transform: rotate(15deg); }
+      @keyframes madden-pulse {
+        0%, 100% { opacity: 0.4; transform: scale(1); }
+        50%      { opacity: 0.8; transform: scale(1.15); }
       }
       @media (max-width: 600px) {
-        #madden-float svg { width: 60px; }
+        .madden-photo { width: 55px; height: 55px; }
+        .madden-shroom { font-size: 24px; top: -30px; }
       }
     </style>
   </head>
@@ -6087,107 +6102,14 @@
     </script>
     <!-- Madden floating figure -->
     <div id="madden-float">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200">
-        <!-- Mushroom thought bubble -->
-        <g class="shroom-bubble">
-          <!-- Thought dots -->
-          <circle cx="68" cy="58" r="2.5" fill="#fff" opacity="0.7"/>
-          <circle cx="72" cy="48" r="3.5" fill="#fff" opacity="0.8"/>
-          <!-- Bubble -->
-          <ellipse cx="75" cy="28" rx="22" ry="18" fill="rgba(255,255,255,0.9)" stroke="#ccc" stroke-width="0.8"/>
-          <!-- Mushroom stem -->
-          <rect x="72" y="24" width="6" height="12" rx="2" fill="#f0e6d3"/>
-          <!-- Mushroom cap -->
-          <ellipse cx="75" cy="22" rx="12" ry="8" fill="#d94040"/>
-          <!-- Mushroom dots -->
-          <circle cx="70" cy="20" r="2" fill="#fff"/>
-          <circle cx="78" cy="19" r="1.8" fill="#fff"/>
-          <circle cx="74" cy="17" r="1.5" fill="#fff"/>
-          <circle cx="81" cy="22" r="1.3" fill="#fff"/>
-        </g>
-
-        <!-- Backwards white cap -->
-        <ellipse cx="60" cy="68" rx="18" ry="6" fill="#e8e8e8"/>
-        <rect x="42" y="63" width="36" height="8" rx="4" fill="#f0f0f0"/>
-        <!-- Cap brim (backwards) -->
-        <rect x="36" y="68" width="12" height="3" rx="1.5" fill="#d0d0d0"/>
-
-        <!-- Hair flowing out from cap - blonde -->
-        <path d="M42 70 Q35 78 34 92 Q36 88 40 85" fill="#d4b96a"/>
-        <path d="M78 70 Q85 78 86 92 Q84 88 80 85" fill="#d4b96a"/>
-        <path d="M44 70 Q38 80 37 90" fill="none" stroke="#c4a85a" stroke-width="2"/>
-        <path d="M76 70 Q82 80 83 90" fill="none" stroke="#c4a85a" stroke-width="2"/>
-        <!-- Extra flow -->
-        <path d="M40 72 Q32 82 33 95" fill="none" stroke="#d4b96a" stroke-width="2.5"/>
-        <path d="M80 72 Q88 82 87 95" fill="none" stroke="#d4b96a" stroke-width="2.5"/>
-
-        <!-- Head -->
-        <ellipse cx="60" cy="78" rx="17" ry="18" fill="#f5cba7"/>
-        <!-- Stubble -->
-        <rect x="50" y="88" width="20" height="6" rx="3" fill="#e8bf94" opacity="0.5"/>
-
-        <!-- Eyes - trippy spirals -->
-        <circle cx="53" cy="76" r="3.5" fill="#fff"/>
-        <circle cx="67" cy="76" r="3.5" fill="#fff"/>
-        <circle cx="53" cy="76" r="2" fill="#333">
-          <animateTransform attributeName="transform" type="rotate" values="0 53 76;360 53 76" dur="3s" repeatCount="indefinite"/>
-        </circle>
-        <circle cx="67" cy="76" r="2" fill="#333">
-          <animateTransform attributeName="transform" type="rotate" values="0 67 76;360 67 76" dur="3s" repeatCount="indefinite"/>
-        </circle>
-        <!-- Spiral pupils -->
-        <path d="M52 76 Q53 74 54 76 Q53 78 52 76" fill="none" stroke="#9b59b6" stroke-width="0.6">
-          <animateTransform attributeName="transform" type="rotate" values="0 53 76;360 53 76" dur="2s" repeatCount="indefinite"/>
-        </path>
-        <path d="M66 76 Q67 74 68 76 Q67 78 66 76" fill="none" stroke="#9b59b6" stroke-width="0.6">
-          <animateTransform attributeName="transform" type="rotate" values="0 67 76;360 67 76" dur="2s" repeatCount="indefinite"/>
-        </path>
-
-        <!-- Goofy open mouth -->
-        <ellipse cx="60" cy="88" rx="5" ry="4" fill="#c0392b"/>
-        <ellipse cx="60" cy="86.5" rx="4" ry="1.5" fill="#fff"/>
-
-        <!-- Body - loud patterned shirt -->
-        <rect x="40" y="96" width="40" height="40" rx="6" fill="#87ceeb"/>
-        <!-- Shirt collar -->
-        <path d="M48 96 L60 102 L72 96" fill="none" stroke="#6bb5d6" stroke-width="1.5"/>
-        <!-- Shirt patterns - pink flamingos/lobsters like his shirt -->
-        <text x="46" y="112" font-size="8" fill="#e75480" opacity="0.7">~</text>
-        <text x="62" y="108" font-size="7" fill="#e75480" opacity="0.7">*</text>
-        <text x="54" y="120" font-size="8" fill="#e75480" opacity="0.6">~</text>
-        <text x="70" y="118" font-size="7" fill="#e75480" opacity="0.7">*</text>
-        <text x="48" y="130" font-size="7" fill="#e75480" opacity="0.6">~</text>
-        <text x="66" y="128" font-size="8" fill="#e75480" opacity="0.7">*</text>
-        <!-- Tiny shrimp/lobster shapes -->
-        <path d="M50 115 Q52 113 54 115" fill="none" stroke="#e75480" stroke-width="1" opacity="0.6"/>
-        <path d="M64 122 Q66 120 68 122" fill="none" stroke="#e75480" stroke-width="1" opacity="0.6"/>
-        <path d="M52 126 Q54 124 56 126" fill="none" stroke="#e75480" stroke-width="1" opacity="0.6"/>
-
-        <!-- Left arm -->
-        <g class="madden-arm-l">
-          <path d="M40 100 Q28 115 32 130" stroke="#87ceeb" stroke-width="8" fill="none" stroke-linecap="round"/>
-          <circle cx="32" cy="130" r="4" fill="#f5cba7"/>
-        </g>
-        <!-- Right arm -->
-        <g class="madden-arm-r">
-          <path d="M80 100 Q92 115 88 130" stroke="#87ceeb" stroke-width="8" fill="none" stroke-linecap="round"/>
-          <circle cx="88" cy="130" r="4" fill="#f5cba7"/>
-        </g>
-
-        <!-- Left leg -->
-        <g class="madden-legs">
-          <path d="M50 136 L46 170" stroke="#3a5a3a" stroke-width="7" stroke-linecap="round"/>
-          <ellipse cx="44" cy="172" rx="7" ry="3" fill="#555"/>
-        </g>
-        <!-- Right leg -->
-        <g class="madden-legs" style="animation-delay: 0.3s;">
-          <path d="M70 136 L74 170" stroke="#3a5a3a" stroke-width="7" stroke-linecap="round"/>
-          <ellipse cx="76" cy="172" rx="7" ry="3" fill="#555"/>
-        </g>
-
-        <!-- Name tag -->
-        <text x="60" y="192" text-anchor="middle" font-family="'Bebas Neue', sans-serif" font-size="11" fill="#fff" opacity="0.8" letter-spacing="1">MADDEN</text>
-      </svg>
+      <div class="madden-inner">
+        <div class="madden-shroom">🍄</div>
+        <div style="position:relative; display:inline-block;">
+          <div class="madden-glow"></div>
+          <img src="madden.jpg" alt="Madden" class="madden-photo" />
+        </div>
+        <div class="madden-name">MADDEN</div>
+      </div>
     </div>
   </body>
 </html>
