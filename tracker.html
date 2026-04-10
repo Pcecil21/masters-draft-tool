@@ -4133,13 +4133,8 @@
       }
 
       function findPoolGolferName(espnName) {
-        // Direct match first
-        const allGolfers = new Set();
-        pool.teams.forEach((t) =>
-          t.golfers.forEach((g) => {
-            if (g) allGolfers.add(g);
-          }),
-        );
+        // Match against ALL known golfers, not just drafted ones
+        const allGolfers = GOLFER_NAMES;
 
         for (const name of allGolfers) {
           if (name === espnName) return name;
