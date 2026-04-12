@@ -4109,7 +4109,7 @@
           const active = golferData.filter(
             (g) => g.status === "active" && g.score !== null,
           );
-          const cutCount = golferData.filter((g) => g.status === "cut").length;
+          const cutCount = golferData.filter((g) => g.status === "cut" || g.status === "wd").length;
           const alive = 3 - cutCount >= 2; // Need 2+ to make cut
 
           // Best 2 scores
@@ -4391,6 +4391,41 @@
               }
             }
           });
+
+          // Mark pool golfers missing from ESPN data as cut
+          // (ESPN excludes cut players from the scoreboard after round 2)
+          const espnNames = new Set();
+          competitors.forEach((c) => {
+            const name = c.athlete?.displayName || c.athlete?.fullName || "";
+            const poolName = findPoolGolferName(name);
+            if (poolName) espnNames.add(poolName);
+          });
+
+          // Check if tournament is past the cut (round 3+)
+          const pastCut = competitors.some((c) =>
+            c.linescores && c.linescores.length >= 3
+          );
+
+          if (pastCut) {
+            pool.teams.forEach((t) => {
+              t.golfers.forEach((g) => {
+                if (g && !espnNames.has(g)) {
+                  const existing = pool.scores[g];
+                  // Only mark as cut if not already scored/tracked
+                  if (!existing || existing.status === "active" && existing.score === null) {
+                    pool.scores[g] = {
+                      score: null,
+                      status: "cut",
+                      position: null,
+                      rounds: [],
+                      thru: null,
+                      today: null,
+                    };
+                  }
+                }
+              });
+            });
+          }
 
           // Detect heckles before saving
           const newHeckles = detectHeckles(prevScores, pool.scores);
