@@ -4392,44 +4392,37 @@
             }
           });
 
-          // Mark pool golfers missing from ESPN data as cut
-          // (ESPN excludes cut players from the scoreboard after round 2)
-          const espnNames = new Set();
-          competitors.forEach((c) => {
-            const name = c.athlete?.displayName || c.athlete?.fullName || "";
-            const poolName = findPoolGolferName(name);
-            if (poolName) espnNames.add(poolName);
-          });
+          // Detect cut players by round count — ESPN returns the full field
+          // but cut players only have 2 completed rounds while active have 3+
+          const maxRounds = Math.max(...competitors.map((c) =>
+            (c.linescores || []).filter((rd) => rd.linescores && rd.linescores.length > 0).length
+          ), 0);
 
-          // Check if tournament is past the cut (round 3+)
-          const pastCut = competitors.some((c) =>
-            c.linescores && c.linescores.length >= 3
-          );
+          if (maxRounds >= 3) {
+            competitors.forEach((c) => {
+              const name = c.athlete?.displayName || c.athlete?.fullName || "";
+              const poolName = findPoolGolferName(name);
+              if (!poolName) return;
 
-          console.log('[CUT DEBUG] pastCut:', pastCut, '| espnNames:', [...espnNames], '| teams:', pool.teams.map(t => t.name + ': ' + t.golfers.join(', ')));
+              const completedRounds = (c.linescores || []).filter(
+                (rd) => rd.linescores && rd.linescores.length > 0
+              ).length;
 
-          if (pastCut) {
-            pool.teams.forEach((t) => {
-              t.golfers.forEach((g) => {
-                if (g && !espnNames.has(g)) {
-                  const existing = pool.scores[g];
-                  console.log('[CUT DEBUG] Marking as cut:', g, '(team:', t.name, ')');
-                  // Mark as cut if not already cut/wd
-                  if (!existing || (existing.status !== "cut" && existing.status !== "wd")) {
-                    pool.scores[g] = {
-                      score: null,
-                      status: "cut",
-                      position: null,
-                      rounds: existing?.rounds || [],
-                      thru: null,
-                      today: null,
-                    };
-                  }
+              if (completedRounds < maxRounds && completedRounds <= 2) {
+                const existing = pool.scores[poolName];
+                if (existing && existing.status !== "cut" && existing.status !== "wd") {
+                  console.log('[CUT] Marking as cut:', poolName, '(completed', completedRounds, 'of', maxRounds, 'rounds)');
+                  pool.scores[poolName] = {
+                    score: null,
+                    status: "cut",
+                    position: null,
+                    rounds: existing?.rounds || [],
+                    thru: null,
+                    today: null,
+                  };
                 }
-              });
+              }
             });
-          } else {
-            console.log('[CUT DEBUG] pastCut is false — no linescores >= 3 found');
           }
 
           // Detect heckles before saving
