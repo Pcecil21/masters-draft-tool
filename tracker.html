@@ -4406,11 +4406,14 @@
             c.linescores && c.linescores.length >= 3
           );
 
+          console.log('[CUT DEBUG] pastCut:', pastCut, '| espnNames:', [...espnNames], '| teams:', pool.teams.map(t => t.name + ': ' + t.golfers.join(', ')));
+
           if (pastCut) {
             pool.teams.forEach((t) => {
               t.golfers.forEach((g) => {
                 if (g && !espnNames.has(g)) {
                   const existing = pool.scores[g];
+                  console.log('[CUT DEBUG] Marking as cut:', g, '(team:', t.name, ')');
                   // Mark as cut if not already cut/wd
                   if (!existing || (existing.status !== "cut" && existing.status !== "wd")) {
                     pool.scores[g] = {
@@ -4425,6 +4428,8 @@
                 }
               });
             });
+          } else {
+            console.log('[CUT DEBUG] pastCut is false — no linescores >= 3 found');
           }
 
           // Detect heckles before saving
