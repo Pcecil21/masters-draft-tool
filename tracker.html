@@ -6454,6 +6454,50 @@
           localStorage.setItem('madden-heckle-cleanup-v3', '1');
         }
 
+        // Dumas heckle
+        const dumasKey = 'dumas-heckle-injected-v1';
+        if (!localStorage.getItem(dumasKey)) {
+          const dumasLines = [
+            "Dumas sitting in second thinking he's hot shit. Bro, you're the silver medalist of a group that includes a man who pisses himself. Second place is just the first loser with a better view of someone else's ass. Enjoy staring at Madden's backside all Sunday.",
+            "Dumas in second place riding Cameron Young like a rented mule. Without that man your team is flatter than your personality and drier than your sex life. One golfer is carrying you the way your wife carries every conversation — because you bring NOTHING to the table.",
+            "Dumas lurking in second like a creep outside a bar at 2 AM. Close enough to smell first place but too pathetic to close the deal. Story of your life, buddy. Always the bridesmaid, never the bride, and even the bridesmaids don't want to talk to you.",
+          ];
+          const dumasLine = dumasLines[Math.floor(Math.random() * dumasLines.length)];
+          const dumasTeam = pool.teams.find(t => t.name && t.name.toLowerCase().includes('dumas'));
+          const dumasName = dumasTeam ? dumasTeam.name : 'Dumas';
+          const dumasGolfer = dumasTeam && dumasTeam.golfers[0] ? dumasTeam.golfers[0] : '';
+          heckles.unshift({
+            id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+            owner: dumasName, golfer: dumasGolfer,
+            text: dumasLine, category: 'epic',
+            time: new Date().toISOString(),
+          });
+          saveHeckles();
+          localStorage.setItem(dumasKey, '1');
+        }
+
+        // Gronske heckle
+        const gronskeKey = 'gronske-heckle-injected-v1';
+        if (!localStorage.getItem(gronskeKey)) {
+          const gronskeLines = [
+            "Gronske in third with Nico Echavarria at +13 dragging his team down like an anchor made of dogshit. Gronske drafted a guy who's playing so bad the course marshals asked him to leave. Not disqualified — they just didn't want him there anymore. Nobody does, Gronske. Nobody does.",
+            "Gronske's team is being held together by Scheffler and duct tape while Nico Echavarria plays golf like a blind man fucking — swinging wildly, missing everything, and someone's gonna get hurt. Gronske bet real money on this and it shows. Not good judgment. Just shows.",
+            "Gronske sitting in third thinking he's in contention. Brother, your third golfer is +13. That's not a golf score, that's a felony. Nico Echavarria is committing crimes against your roster and you're just sitting there watching like a cuck while Scheffler tries to save your marriage.",
+          ];
+          const gronskeLine = gronskeLines[Math.floor(Math.random() * gronskeLines.length)];
+          const gronskeTeam = pool.teams.find(t => t.name && t.name.toLowerCase().includes('gronske'));
+          const gronskeName = gronskeTeam ? gronskeTeam.name : 'Gronske';
+          const gronskeGolfer = gronskeTeam && gronskeTeam.golfers[0] ? gronskeTeam.golfers[0] : '';
+          heckles.unshift({
+            id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+            owner: gronskeName, golfer: gronskeGolfer,
+            text: gronskeLine, category: 'epic',
+            time: new Date().toISOString(),
+          });
+          saveHeckles();
+          localStorage.setItem(gronskeKey, '1');
+        }
+
         const maddenHeckleKey = 'madden-heckle-injected-r3-v3';
         if (!localStorage.getItem(maddenHeckleKey)) {
           const maddenLines = [
