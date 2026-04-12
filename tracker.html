@@ -4411,13 +4411,13 @@
               t.golfers.forEach((g) => {
                 if (g && !espnNames.has(g)) {
                   const existing = pool.scores[g];
-                  // Only mark as cut if not already scored/tracked
-                  if (!existing || existing.status === "active" && existing.score === null) {
+                  // Mark as cut if not already cut/wd
+                  if (!existing || (existing.status !== "cut" && existing.status !== "wd")) {
                     pool.scores[g] = {
                       score: null,
                       status: "cut",
                       position: null,
-                      rounds: [],
+                      rounds: existing?.rounds || [],
                       thru: null,
                       today: null,
                     };
