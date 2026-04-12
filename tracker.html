@@ -6447,14 +6447,14 @@
         }
 
         // One-time Madden heckle injection
-        const maddenHeckleKey = 'madden-heckle-injected-r3-v2';
+        const maddenHeckleKey = 'madden-heckle-injected-r3-v3';
         if (!localStorage.getItem(maddenHeckleKey)) {
           const maddenLines = [
-            "Madden's team is getting fucked so hard by Augusta that Amen Corner filed a sexual harassment complaint. His roster has been on its knees all weekend and not in a praying way. The only thing more limp than his game is what's in his pants.",
-            "Madden's draft picks have been bent over the leaderboard and violated in ways that would make a Bangkok prostitute blush. His team is spread-eagle, face down, ass up, and the entire field is taking turns. And Madden PAID for this.",
-            "Madden is walking around Augusta with piss running down his leg and a roster that performs like a 70-year-old's dick — can't get it up when it counts, finishes embarrassingly early, and everybody in the room pretends they didn't see it. We all saw it, Madden.",
-            "Madden's team has been raw-dogged by every hole on the course. No lube, no dinner, no eye contact afterward. His roster is leaking strokes the way he leaks piss — constantly, uncontrollably, and everyone around him can smell it.",
-            "Madden out here drafting with the strategic genius of a man who jerks off with sandpaper — painful to watch, painful to do, and at the end of it you're just raw, bleeding, and wondering what the fuck went wrong with your life choices. That's his team. That's Madden.",
+            "Madden is in first place and strutting around like a guy who finally got laid after a 12-year dry spell. Calm down bro, your dick still doesn't work and your cane is doing more heavy lifting than your entire roster. Enjoy it now because this is the only time you'll ever be on top of anything.",
+            "Madden leading the pool is proof that God has a sick sense of humor. This man pisses his pants, walks with a cane, and drafts golfers like he's picking items off a Denny's menu at 4 AM — yet HERE HE IS in first. The rest of you should be fucking ashamed. You're losing to THIS guy.",
+            "Madden in first place. Let that sink in. A man whose body is falling apart faster than your fantasy teams just big-dicked the entire pool. He can barely walk to the fridge and he's running laps around all of you. Every single one of you got out-drafted by a guy who needs a handicap placard for his CAR and his GOLF GAME.",
+            "First place Madden. The man with piss-stained jeans and a cane is standing on top of the leaderboard with his balls out, helicoptering on all of you. And you can't do a goddamn thing about it. He drafted better than you with one functioning leg and half a brain. What's YOUR excuse?",
+            "Madden somehow in first and the rest of you are getting absolutely teabagged by a man who looks like he got lost on the way to a doctor's appointment. His team is dunking on you so hard your grandchildren will feel the embarrassment. You're all getting sonned by a guy who can't tie his own shoes without taking a break.",
           ];
           const line = maddenLines[Math.floor(Math.random() * maddenLines.length)];
           const maddenTeam = pool.teams.find(t => t.name && t.name.toLowerCase().includes('madden')) || pool.teams.find(t => t.name && t.name.toLowerCase().includes('mfm'));
