@@ -435,8 +435,34 @@
       }
 
       .pool-row.eliminated {
-        opacity: 0.4;
+        opacity: 0.45;
         border-color: var(--red);
+        background: repeating-linear-gradient(
+          135deg,
+          var(--bg-card),
+          var(--bg-card) 10px,
+          rgba(232, 84, 84, 0.04) 10px,
+          rgba(232, 84, 84, 0.04) 20px
+        );
+      }
+
+      .pool-row.eliminated .pool-pos {
+        text-decoration: line-through;
+        text-decoration-color: var(--red);
+      }
+
+      .eliminated-tag {
+        display: inline-block;
+        font-family: "Bebas Neue", sans-serif;
+        font-size: 10px;
+        letter-spacing: 1px;
+        color: var(--red);
+        border: 1px solid var(--red);
+        padding: 1px 5px;
+        border-radius: 3px;
+        margin-left: 6px;
+        vertical-align: middle;
+        opacity: 0.85;
       }
 
       .pool-pos {
@@ -4144,7 +4170,7 @@
             return `<div class="pool-row ${team.isMe ? "me" : ""} ${eliminated ? "eliminated" : ""} ${moveClass}" onclick="toggleTeamDetail(this)" data-team="${esc(team.name)}">
       <div class="pool-pos ${pos === 1 ? "first" : ""}">${pos}${moveHtml}</div>
       <div class="pool-body">
-        <div class="pool-name">${esc(team.name)} ${team.isMe ? '<span style="color:var(--champagne);font-size:11px;">(YOU)</span>' : ""} <button class="h2h-pick-btn" onclick="event.stopPropagation();handleH2HSelect('${esc(team.name).replace(/'/g, "\\'")}')">VS</button></div>
+        <div class="pool-name">${esc(team.name)} ${team.isMe ? '<span style="color:var(--champagne);font-size:11px;">(YOU)</span>' : ""}${eliminated ? '<span class="eliminated-tag">ELIMINATED</span>' : ""} <button class="h2h-pick-btn" onclick="event.stopPropagation();handleH2HSelect('${esc(team.name).replace(/'/g, "\\'")}')">VS</button></div>
         <div class="pool-golfers">
           ${team.golfers
             .map((g) => {
