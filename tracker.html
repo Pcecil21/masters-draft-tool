@@ -6447,6 +6447,13 @@
         }
 
         // One-time Madden heckle injection
+        // Clean up old Madden heckles
+        if (!localStorage.getItem('madden-heckle-cleanup-v3')) {
+          heckles = heckles.filter(h => !(h.category === 'epic' && h.owner && h.owner.toLowerCase && (h.owner.toLowerCase().includes('madden') || h.owner.toLowerCase().includes('mfm')) && h.text && (h.text.includes('raw-dogged') || h.text.includes('Bangkok') || h.text.includes('sandpaper') || h.text.includes('harassment') || h.text.includes('leaking strokes'))));
+          saveHeckles();
+          localStorage.setItem('madden-heckle-cleanup-v3', '1');
+        }
+
         const maddenHeckleKey = 'madden-heckle-injected-r3-v3';
         if (!localStorage.getItem(maddenHeckleKey)) {
           const maddenLines = [
