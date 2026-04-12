@@ -5486,6 +5486,9 @@
             "{golfer} bogeys. {owner}, your team is hemorrhaging strokes like a stabbing victim at a hospital with no doctors. Which makes sense because your draft had no brains either.",
             "Bogey {golfer}. {owner}, your weekend is circling the drain and your team is the turd that won't flush. Everyone's watching. Everyone's disgusted.",
             "{golfer} drops another stroke. {owner}, I've seen more fight in a dead cat on the side of the road. Your team is decomposing in real time and it smells as bad as it looks.",
+            "{golfer} bogeys again. {owner}, your team fucks like it golfs — sloppy, disappointing, and over way too fast.",
+            "Bogey for {golfer}. {owner}, even the hookers on Washington Road are embarrassed for you and they've seen some shameful shit.",
+            "{golfer} drops another. {owner}, your team has the sexual energy of a wet sock and the scoring ability to match.",
           ],
         ],
         doubleBogey: [
@@ -5521,6 +5524,10 @@
             "Double for {golfer}. {owner}, your picks are so bad that Make-A-Wish called — they want to grant you one because watching your team is a terminal illness.",
             "{golfer} doubled. {owner}, I showed your roster to a therapy dog and it started crying. The DOG needs therapy now. You broke a golden retriever.",
             "{owner}, {golfer} just doubled. At this point your team isn't a draft strategy, it's a cry for help. Blink twice if you need us to call someone.",
+            "Double for {golfer}. {owner}, your team gets penetrated harder than your ex on spring break. And just like her, it's never coming back to you.",
+            "{golfer} doubles. {owner}, watching your team is like watching two homeless guys fight over a sandwich — ugly, sad, and you can't look away even though you hate yourself for watching.",
+            "{owner}'s {golfer} doubled. Your team has been bent over the azaleas and fucked by every hole on the back nine. Augusta didn't even buy you dinner first.",
+            "Double bogey {golfer}. {owner}, your draft picks get passed around the leaderboard like the town bicycle. Everyone's had a ride and nobody's impressed.",
           ],
         ],
         triplePlus: [
@@ -5549,6 +5556,9 @@
             "{golfer} cards a {score}. {owner}, if your draft picks were a movie, it would be rated NC-17 — not for sex, just for the absolutely obscene things you've done to a perfectly good golf pool.",
             "{golfer} just took a {score}. {owner}, your team is getting violated on national television. Someone call the authorities. This is elder abuse and your roster is 97 years old.",
             "A {score} from {golfer}. {owner}, I wouldn't wish your team on my worst enemy. Actually I would. But only because my worst enemy is you.",
+            "{golfer} with a {score}. {owner}, Augusta just raw-dogged your entire roster without consent. Your team needs a safe word and a shower.",
+            "A {score} from {golfer}. {owner}, your team just got skull-fucked by Amen Corner. I'd say use lube next time but there is no next time. Your team is dead.",
+            "{golfer} {score}. {owner}, your roster has been passed around more than a joint at a Phish concert. Everyone's had a hit and your team is burnt to the filter.",
           ],
         ],
         collapse: [
@@ -5569,6 +5579,7 @@
             "{golfer} has plummeted {score} spots. {owner}, your boy didn't just fall off a cliff — he did a triple backflip off it, hit every rock on the way down, and landed dick-first on a cactus.",
             "{owner}'s {golfer} dropped {score} spots and I'm pretty sure the leaderboard itself is filing a restraining order. Your team is assault. Visual, emotional, spiritual assault.",
             "{golfer} down {score} positions. {owner}, if your team was a stock, the SEC would've halted trading, the CEO would've fled the country, and shareholders would be jumping out of windows. You ARE the shareholders.",
+            "{golfer} fell {score} spots. {owner}, your team just got its cheeks clapped by the entire leaderboard. Not even gently. Augusta went in dry and your team said thank you.",
           ],
         ],
         surge: [
@@ -5611,6 +5622,8 @@
             "CUT for {golfer}. {owner}, at this point your team is an active crime scene. Yellow tape around your draft card. Detectives are interviewing witnesses. Nobody can explain what happened here.",
             "{golfer} missed the cut. {owner}, the Make-A-Wish foundation called — they want to grant your team one final wish before it dies. It wished for a different owner.",
             "MC {golfer}. {owner}, your draft picks have been classified as a biohazard. The CDC is involved. They're tracing the origin of this disaster back to the moment your parents met.",
+            "{golfer} missed the cut. {owner}, your team got fucked harder than a pornstar on payday. Except pornstars get paid. You PAID to get fucked.",
+            "CUT for {golfer}. {owner}, your team is spread-eagle on the leaderboard taking it from every direction. The only thing missing is a camera crew and a Brazzers logo.",
           ],
         ],
         lastPlace: [
@@ -5628,6 +5641,7 @@
           [
             "{owner} is in dead fucking last. If this pool was a human centipede, you'd be the last segment. You know what that means. You know what goes in your mouth. And you deserve every bite.",
             "LAST PLACE for {owner}. Your team is performing at a level that should be illegal. Not 'against the rules' illegal — 'crimes against humanity, tried at The Hague, televised execution' illegal. Your draft card is exhibit A.",
+            "Dead last {owner}. Your team is getting gangbanged by the entire field. Seventeen teams. All of them. At once. And your team keeps asking for more.",
           ],
         ],
         weekendMeltdown: [
@@ -6430,6 +6444,32 @@
               POOL_ID ? `masters-claimed-${POOL_ID}` : "masters-claimed",
             );
           }
+        }
+
+        // One-time Madden heckle injection
+        const maddenHeckleKey = 'madden-heckle-injected-r3';
+        if (!localStorage.getItem(maddenHeckleKey)) {
+          const maddenLines = [
+            "Madden's team is playing like he looks — confused, limping, and one bad hole away from shitting himself on the fairway.",
+            "Madden drafts golfers the way he walks — slowly, painfully, and everyone behind him is annoyed. Get off the course and out of this pool.",
+            "Madden's roster is getting absolutely railed by Augusta National. Amen Corner bent him over and the back nine finished the job. His team needs a cigarette and a pregnancy test.",
+            "Madden out here with a team so bad his cane has better odds of winning. At least the cane can stay upright on a golf course.",
+            "Madden's team is the pool equivalent of a gas station bathroom — disgusting, nobody wants to be there, and somehow there's always piss on the floor. Speaking of piss, check his pants.",
+          ];
+          const line = maddenLines[Math.floor(Math.random() * maddenLines.length)];
+          const maddenTeam = pool.teams.find(t => t.name && t.name.toLowerCase().includes('madden')) || pool.teams.find(t => t.name && t.name.toLowerCase().includes('mfm'));
+          const maddenName = maddenTeam ? maddenTeam.name : 'Madden';
+          const maddenGolfer = maddenTeam && maddenTeam.golfers[0] ? maddenTeam.golfers[0] : '';
+          heckles.unshift({
+            id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+            owner: maddenName,
+            golfer: maddenGolfer,
+            text: line,
+            category: 'epic',
+            time: new Date().toISOString(),
+          });
+          saveHeckles();
+          localStorage.setItem(maddenHeckleKey, '1');
         }
 
         updateBetBadge();
