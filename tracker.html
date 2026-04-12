@@ -2235,17 +2235,82 @@
       }
       .walker-figure {
         position: relative;
-        /* Walking stride bob — asymmetric for limp/cane feel */
-        animation: walker-stride 1.1s ease-in-out infinite;
       }
-      @keyframes walker-stride {
-        0%   { transform: translateY(0) rotate(0deg); }
-        15%  { transform: translateY(-3px) rotate(-1.5deg); }
-        30%  { transform: translateY(-1px) rotate(-0.5deg); }
-        50%  { transform: translateY(0) rotate(0.3deg); }
-        65%  { transform: translateY(-2px) rotate(1.2deg); }
-        80%  { transform: translateY(-1px) rotate(0.4deg); }
-        100% { transform: translateY(0) rotate(0deg); }
+      /* Upper body sway — leans into each step */
+      .walker-upper {
+        position: relative;
+        transform-origin: bottom center;
+        animation: walker-torso 1.2s ease-in-out infinite;
+      }
+      @keyframes walker-torso {
+        0%   { transform: translateY(0) rotate(0deg) translateX(0); }
+        12%  { transform: translateY(-4px) rotate(-1.8deg) translateX(-1px); }
+        25%  { transform: translateY(-6px) rotate(-0.8deg) translateX(0); }
+        37%  { transform: translateY(-3px) rotate(0.3deg) translateX(1px); }
+        50%  { transform: translateY(0) rotate(0deg) translateX(0); }
+        62%  { transform: translateY(-3px) rotate(1.5deg) translateX(1px); }
+        75%  { transform: translateY(-5px) rotate(0.6deg) translateX(0); }
+        87%  { transform: translateY(-2px) rotate(-0.3deg) translateX(-1px); }
+        100% { transform: translateY(0) rotate(0deg) translateX(0); }
+      }
+      /* Left leg — steps forward then back */
+      .walker-leg-l {
+        position: absolute;
+        bottom: 0;
+        left: 18%;
+        width: 28%;
+        height: 38%;
+        background: transparent;
+        transform-origin: top center;
+        animation: walker-leg-left 1.2s ease-in-out infinite;
+        pointer-events: none;
+        z-index: 1;
+      }
+      @keyframes walker-leg-left {
+        0%   { transform: rotate(0deg); }
+        25%  { transform: rotate(6deg); }
+        50%  { transform: rotate(0deg); }
+        75%  { transform: rotate(-5deg); }
+        100% { transform: rotate(0deg); }
+      }
+      /* Right leg — opposite phase */
+      .walker-leg-r {
+        position: absolute;
+        bottom: 0;
+        right: 18%;
+        width: 28%;
+        height: 38%;
+        background: transparent;
+        transform-origin: top center;
+        animation: walker-leg-right 1.2s ease-in-out infinite;
+        pointer-events: none;
+        z-index: 1;
+      }
+      @keyframes walker-leg-right {
+        0%   { transform: rotate(0deg); }
+        25%  { transform: rotate(-5deg); }
+        50%  { transform: rotate(0deg); }
+        75%  { transform: rotate(6deg); }
+        100% { transform: rotate(0deg); }
+      }
+      /* Cane arm pump */
+      .walker-cane-arm {
+        position: absolute;
+        bottom: 40%;
+        left: 5%;
+        width: 30%;
+        height: 20%;
+        background: transparent;
+        transform-origin: top right;
+        animation: walker-cane 1.2s ease-in-out infinite;
+        pointer-events: none;
+      }
+      @keyframes walker-cane {
+        0%   { transform: rotate(0deg); }
+        25%  { transform: rotate(4deg); }
+        50%  { transform: rotate(0deg); }
+        75%  { transform: rotate(-3deg); }
+        100% { transform: rotate(0deg); }
       }
       .walker-bubble {
         background: #fff;
@@ -6389,9 +6454,14 @@
       <div class="walker-inner">
         <div class="walker-bubble">My team sucks</div>
         <div class="walker-figure">
-          <div class="walker-photo-wrap">
-            <img src="walker.png" alt="Walker" class="walker-photo" />
-            <div class="walker-wet-spot"></div>
+          <div class="walker-upper">
+            <div class="walker-photo-wrap">
+              <img src="walker.png" alt="Walker" class="walker-photo" />
+              <div class="walker-wet-spot"></div>
+              <div class="walker-leg-l"></div>
+              <div class="walker-leg-r"></div>
+              <div class="walker-cane-arm"></div>
+            </div>
           </div>
         </div>
         <div class="walker-shadow"></div>
@@ -6400,10 +6470,10 @@
     <script>
     (function() {
       const el = document.getElementById('walker-float');
-      const speed = 0.3; // pixels per frame — slow old man shuffle
-      let x = -130;
-      let direction = 1; // 1 = right, -1 = left
-      const pauseChance = 0.002; // higher chance to stop and rest
+      const speed = 0.3;
+      let x = -200;
+      let direction = 1;
+      const pauseChance = 0.002;
       let paused = 0;
       const bubbles = [
         "My team sucks",
@@ -6419,44 +6489,56 @@
         "End my suffering",
         "I blame the caddy",
         "At least I have beer",
+        "I should've picked Scheffler",
+        "Existence is pain",
       ];
       let bubbleTimer = 0;
       const bubbleEl = el.querySelector('.walker-bubble');
       const figureEl = el.querySelector('.walker-figure');
+      const upperEl = el.querySelector('.walker-upper');
+
+      function setDirection(dir) {
+        direction = dir;
+        // Flip the figure
+        figureEl.style.transform = dir === -1 ? 'scaleX(-1)' : 'scaleX(1)';
+        // Counter-flip the bubble so text stays readable
+        bubbleEl.style.transform = dir === -1 ? 'scaleX(-1)' : 'scaleX(1)';
+      }
+
+      function setPaused(isPaused) {
+        const state = isPaused ? 'paused' : 'running';
+        upperEl.style.animationPlayState = state;
+        el.querySelectorAll('.walker-leg-l, .walker-leg-r, .walker-cane-arm').forEach(
+          e => e.style.animationPlayState = state
+        );
+      }
 
       function animate() {
         const vw = window.innerWidth;
 
         if (paused > 0) {
           paused--;
-          // Subtle idle sway when stopped
-          figureEl.style.animationPlayState = 'paused';
+          setPaused(true);
         } else {
-          figureEl.style.animationPlayState = 'running';
+          setPaused(false);
           x += speed * direction;
 
-          // Reached right edge — pause, turn around
-          if (x > vw + 20) {
-            direction = -1;
-            el.style.transform = 'scaleX(-1)';
-            bubbleEl.style.transform = 'scaleX(-1)'; // keep text readable
+          if (x > vw + 40) {
+            setDirection(-1);
+            paused = 60; // brief pause at edge before walking back
           }
-          // Reached left edge — pause, turn around
-          if (x < -130) {
-            direction = 1;
-            el.style.transform = 'scaleX(1)';
-            bubbleEl.style.transform = 'scaleX(1)';
+          if (x < -200) {
+            setDirection(1);
+            paused = 60;
           }
 
-          // Random pause — stops to look around
           if (Math.random() < pauseChance) {
-            paused = Math.floor(120 + Math.random() * 300); // 2–7 seconds, tired old man rest
+            paused = Math.floor(120 + Math.random() * 300);
           }
         }
 
-        // Cycle bubble text
         bubbleTimer++;
-        if (bubbleTimer > 360) { // ~6 seconds
+        if (bubbleTimer > 360) {
           bubbleTimer = 0;
           bubbleEl.textContent = bubbles[Math.floor(Math.random() * bubbles.length)];
         }
