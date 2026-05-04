@@ -1,1 +1,10 @@
 .vercel
+
+# Tooling noise (added 2026-05-04 portfolio cleanup)
+.claude/
+.vscode/
+.prettierrc
+.security-report*.json
+tsconfig.tsbuildinfo
+skills-lock.json
+.agents/
